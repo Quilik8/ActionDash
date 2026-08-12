@@ -2,8 +2,8 @@ class_name ActionDashCameraFollow
 extends Node3D
 
 @export var target_path: NodePath
-@export var follow_offset: Vector3 = Vector3(0.0, 8.0, 10.0)
-@export var follow_smoothing: float = 7.0
+@export var follow_offset: Vector3 = Vector3(0.0, 9.0, 12.0)
+@export var follow_smoothing: float = 10.0
 @export var look_height: float = 0.7
 
 var _target: Node3D

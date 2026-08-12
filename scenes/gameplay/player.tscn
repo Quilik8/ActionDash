@@ -30,6 +30,17 @@ height = 0.24
 [node name="Player" type="CharacterBody3D" groups=["player"]]
 script = ExtResource("1_player")
 projectile_scene = ExtResource("3_projectile")
+base_speed = 11.0
+max_speed = 20.0
+acceleration = 34.0
+deceleration = 7.0
+momentum_preservation = 0.84
+gravity = 24.0
+jump_force = 10.5
+air_control = 0.4
+air_acceleration = 11.0
+air_deceleration = 1.8
+fire_interval = 0.22
 
 [node name="Body" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.9, 0)
