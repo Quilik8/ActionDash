@@ -2,6 +2,10 @@
 .godot/
 .import/
 
+# Project-local temporary directory used by Godot MCP/editor checks
+.codex/runtime-temp/*
+!.codex/runtime-temp/.gitkeep
+
 # Local/editor output
 export.cfg
 *.tmp
