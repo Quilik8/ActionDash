@@ -1,10 +1,14 @@
-# Reglas técnicas de ActionDash
+# Technical rules for ActionDash
 
-- Usar Godot `4.7.1` y GDScript exclusivamente.
-- Mantener el proyecto ligero y compatible con una laptop Lenovo G50 con AMD A8.
-- Preferir el renderer `gl_compatibility` mientras no exista una necesidad comprobada de cambiarlo.
-- No añadir assets, plugins, frameworks o dependencias externas sin justificación explícita.
-- Mantener las escenas y scripts pequeños, claros y fáciles de verificar.
-- No implementar gameplay, combate, UI, perks ni sistemas Roguelite durante el bootstrap.
-- No incluir `.godot/`, imports, logs ni otros artefactos generados en Git.
-- Después de cada cambio relevante, ejecutar una comprobación headless de Godot antes de continuar.
+- Use Godot `4.7.1` and GDScript exclusively.
+- Keep the project lightweight and compatible with a Lenovo G50 laptop with AMD A8.
+- Prefer the `gl_compatibility` renderer unless a measured need proves otherwise.
+- Do not add external assets, plugins, frameworks, or dependencies without explicit justification.
+- Keep scenes and scripts small, clear, and easy to validate.
+- Keep gameplay responsibilities separated into Player, Camera, Projectile, Enemy,
+  EnemySpawner, and ProximityDamage scripts.
+- Enemies must remain non-physical for the MVP: no collision bodies, navigation,
+  pushing, contact damage, or enemy-to-enemy physics.
+- MVP movement controls are WASF: W forward, A left, S backward, F right.
+- Do not include `.godot/`, imports, logs, or other generated artifacts in Git.
+- After relevant changes, run a lightweight headless Godot validation before continuing.

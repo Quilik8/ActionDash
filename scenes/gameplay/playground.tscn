@@ -1,0 +1,128 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/gameplay/player.tscn" id="1_player"]
+[ext_resource type="PackedScene" path="res://scenes/gameplay/enemy.tscn" id="2_enemy"]
+[ext_resource type="Script" path="res://scripts/camera_follow.gd" id="3_camera"]
+[ext_resource type="Script" path="res://scripts/enemy_spawner.gd" id="4_spawner"]
+[ext_resource type="Script" path="res://scripts/debug_overlay.gd" id="5_debug"]
+
+[sub_resource type="Environment" id="Environment_playground"]
+background_mode = 1
+background_color = Color(0.035, 0.047, 0.075, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.42, 0.48, 0.62, 1)
+ambient_light_energy = 0.55
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
+albedo_color = Color(0.13, 0.16, 0.2, 1)
+roughness = 0.95
+
+[sub_resource type="BoxMesh" id="BoxMesh_floor"]
+material = SubResource("StandardMaterial3D_floor")
+size = Vector3(40, 0.2, 40)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_floor"]
+size = Vector3(40, 0.2, 40)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_block"]
+albedo_color = Color(0.24, 0.28, 0.34, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="BoxMesh_block"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(2.5, 1.4, 2.5)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_block"]
+size = Vector3(2.5, 1.4, 2.5)
+
+[node name="Playground" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_playground")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-55, -25, 0)
+light_energy = 1.15
+shadow_enabled = false
+
+[node name="Floor" type="StaticBody3D" parent="."]
+collision_layer = 1
+collision_mask = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="Floor"]
+mesh = SubResource("BoxMesh_floor")
+
+[node name="Collision" type="CollisionShape3D" parent="Floor"]
+shape = SubResource("BoxShape3D_floor")
+
+[node name="BlockNorth" type="StaticBody3D" parent="."]
+position = Vector3(-5, 0.7, -4)
+collision_layer = 1
+collision_mask = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="BlockNorth"]
+mesh = SubResource("BoxMesh_block")
+
+[node name="Collision" type="CollisionShape3D" parent="BlockNorth"]
+shape = SubResource("BoxShape3D_block")
+
+[node name="BlockEast" type="StaticBody3D" parent="."]
+position = Vector3(6, 0.7, -1)
+collision_layer = 1
+collision_mask = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="BlockEast"]
+mesh = SubResource("BoxMesh_block")
+
+[node name="Collision" type="CollisionShape3D" parent="BlockEast"]
+shape = SubResource("BoxShape3D_block")
+
+[node name="BlockSouth" type="StaticBody3D" parent="."]
+position = Vector3(2, 0.7, 6)
+collision_layer = 1
+collision_mask = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="BlockSouth"]
+mesh = SubResource("BoxMesh_block")
+
+[node name="Collision" type="CollisionShape3D" parent="BlockSouth"]
+shape = SubResource("BoxShape3D_block")
+
+[node name="CameraRig" type="Node3D" parent="."]
+script = ExtResource("3_camera")
+target_path = NodePath("../Player")
+follow_offset = Vector3(0, 8, 10)
+follow_smoothing = 7.0
+look_height = 0.7
+
+[node name="Camera3D" type="Camera3D" parent="CameraRig"]
+current = true
+fov = 65.0
+
+[node name="Player" parent="." instance=ExtResource("1_player")]
+
+[node name="EnemySpawner" type="Node3D" parent="."]
+script = ExtResource("4_spawner")
+enemy_scene = ExtResource("2_enemy")
+player_path = NodePath("../Player")
+initial_spawn_count = 4
+maximum_enemies = 6
+spawn_interval = 1.5
+minimum_distance = 7.0
+maximum_distance = 12.0
+
+[node name="DebugLayer" type="CanvasLayer" parent="."]
+
+[node name="DebugOverlay" type="Label" parent="DebugLayer"]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 560.0
+offset_bottom = 125.0
+theme_override_colors/font_color = Color(0.88, 0.94, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.8)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 16
+text = "ActionDash MVP"
+script = ExtResource("5_debug")
+player_path = NodePath("../../Player")
