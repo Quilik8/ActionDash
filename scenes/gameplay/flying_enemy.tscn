@@ -1,0 +1,20 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/flying_enemy.gd" id="1_flying_enemy"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_flying_enemy"]
+albedo_color = Color(0.28, 0.78, 0.92, 1)
+emission_enabled = true
+emission = Color(0.04, 0.18, 0.24, 1)
+roughness = 0.45
+
+[sub_resource type="SphereMesh" id="SphereMesh_flying_enemy"]
+material = SubResource("StandardMaterial3D_flying_enemy")
+radius = 0.75
+height = 1.5
+
+[node name="FlyingEnemy" type="Node3D"]
+script = ExtResource("1_flying_enemy")
+
+[node name="Body" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_flying_enemy")

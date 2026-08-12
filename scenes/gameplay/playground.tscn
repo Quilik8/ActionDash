@@ -1,10 +1,11 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/gameplay/player.tscn" id="1_player"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/enemy.tscn" id="2_enemy"]
-[ext_resource type="Script" path="res://scripts/camera_follow.gd" id="3_camera"]
-[ext_resource type="Script" path="res://scripts/enemy_spawner.gd" id="4_spawner"]
-[ext_resource type="Script" path="res://scripts/debug_overlay.gd" id="5_debug"]
+[ext_resource type="PackedScene" path="res://scenes/gameplay/flying_enemy.tscn" id="3_flying_enemy"]
+[ext_resource type="Script" path="res://scripts/camera_follow.gd" id="4_camera"]
+[ext_resource type="Script" path="res://scripts/enemy_spawner.gd" id="5_spawner"]
+[ext_resource type="Script" path="res://scripts/debug_overlay.gd" id="6_debug"]
 
 [sub_resource type="Environment" id="Environment_playground"]
 background_mode = 1
@@ -19,21 +20,53 @@ roughness = 0.95
 
 [sub_resource type="BoxMesh" id="BoxMesh_floor"]
 material = SubResource("StandardMaterial3D_floor")
-size = Vector3(40, 0.2, 40)
+size = Vector3(120, 0.2, 100)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_floor"]
-size = Vector3(40, 0.2, 40)
+size = Vector3(120, 0.2, 100)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_block"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wall"]
+albedo_color = Color(0.08, 0.1, 0.14, 1)
+roughness = 1.0
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall_x"]
+material = SubResource("StandardMaterial3D_wall")
+size = Vector3(120, 8, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wall_x"]
+size = Vector3(120, 8, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall_z"]
+material = SubResource("StandardMaterial3D_wall")
+size = Vector3(1, 8, 100)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wall_z"]
+size = Vector3(1, 8, 100)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_structure"]
 albedo_color = Color(0.24, 0.28, 0.34, 1)
 roughness = 0.9
 
-[sub_resource type="BoxMesh" id="BoxMesh_block"]
-material = SubResource("StandardMaterial3D_block")
-size = Vector3(2.5, 1.4, 2.5)
+[sub_resource type="BoxMesh" id="BoxMesh_platform"]
+material = SubResource("StandardMaterial3D_structure")
+size = Vector3(18, 3, 14)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_block"]
-size = Vector3(2.5, 1.4, 2.5)
+[sub_resource type="BoxShape3D" id="BoxShape3D_platform"]
+size = Vector3(18, 3, 14)
+
+[sub_resource type="BoxMesh" id="BoxMesh_platform_east"]
+material = SubResource("StandardMaterial3D_structure")
+size = Vector3(22, 2, 14)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_platform_east"]
+size = Vector3(22, 2, 14)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ramp"]
+material = SubResource("StandardMaterial3D_structure")
+size = Vector3(22, 1.2, 12)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ramp"]
+size = Vector3(22, 1.2, 12)
 
 [node name="Playground" type="Node3D"]
 
@@ -55,41 +88,98 @@ mesh = SubResource("BoxMesh_floor")
 [node name="Collision" type="CollisionShape3D" parent="Floor"]
 shape = SubResource("BoxShape3D_floor")
 
-[node name="BlockNorth" type="StaticBody3D" parent="."]
-position = Vector3(-5, 0.7, -4)
+[node name="BoundaryNorth" type="StaticBody3D" parent="."]
+position = Vector3(0, 4, -50)
 collision_layer = 1
 collision_mask = 1
 
-[node name="Mesh" type="MeshInstance3D" parent="BlockNorth"]
-mesh = SubResource("BoxMesh_block")
+[node name="Mesh" type="MeshInstance3D" parent="BoundaryNorth"]
+mesh = SubResource("BoxMesh_wall_x")
 
-[node name="Collision" type="CollisionShape3D" parent="BlockNorth"]
-shape = SubResource("BoxShape3D_block")
+[node name="Collision" type="CollisionShape3D" parent="BoundaryNorth"]
+shape = SubResource("BoxShape3D_wall_x")
 
-[node name="BlockEast" type="StaticBody3D" parent="."]
-position = Vector3(6, 0.7, -1)
+[node name="BoundarySouth" type="StaticBody3D" parent="."]
+position = Vector3(0, 4, 50)
 collision_layer = 1
 collision_mask = 1
 
-[node name="Mesh" type="MeshInstance3D" parent="BlockEast"]
-mesh = SubResource("BoxMesh_block")
+[node name="Mesh" type="MeshInstance3D" parent="BoundarySouth"]
+mesh = SubResource("BoxMesh_wall_x")
 
-[node name="Collision" type="CollisionShape3D" parent="BlockEast"]
-shape = SubResource("BoxShape3D_block")
+[node name="Collision" type="CollisionShape3D" parent="BoundarySouth"]
+shape = SubResource("BoxShape3D_wall_x")
 
-[node name="BlockSouth" type="StaticBody3D" parent="."]
-position = Vector3(2, 0.7, 6)
+[node name="BoundaryWest" type="StaticBody3D" parent="."]
+position = Vector3(-60, 4, 0)
 collision_layer = 1
 collision_mask = 1
 
-[node name="Mesh" type="MeshInstance3D" parent="BlockSouth"]
-mesh = SubResource("BoxMesh_block")
+[node name="Mesh" type="MeshInstance3D" parent="BoundaryWest"]
+mesh = SubResource("BoxMesh_wall_z")
 
-[node name="Collision" type="CollisionShape3D" parent="BlockSouth"]
-shape = SubResource("BoxShape3D_block")
+[node name="Collision" type="CollisionShape3D" parent="BoundaryWest"]
+shape = SubResource("BoxShape3D_wall_z")
+
+[node name="BoundaryEast" type="StaticBody3D" parent="."]
+position = Vector3(60, 4, 0)
+collision_layer = 1
+collision_mask = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="BoundaryEast"]
+mesh = SubResource("BoxMesh_wall_z")
+
+[node name="Collision" type="CollisionShape3D" parent="BoundaryEast"]
+shape = SubResource("BoxShape3D_wall_z")
+
+[node name="PlatformNorth" type="StaticBody3D" parent="."]
+position = Vector3(-30, 1.5, -28)
+collision_layer = 1
+collision_mask = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="PlatformNorth"]
+mesh = SubResource("BoxMesh_platform")
+
+[node name="Collision" type="CollisionShape3D" parent="PlatformNorth"]
+shape = SubResource("BoxShape3D_platform")
+
+[node name="PlatformEast" type="StaticBody3D" parent="."]
+position = Vector3(30, 1, 20)
+collision_layer = 1
+collision_mask = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="PlatformEast"]
+mesh = SubResource("BoxMesh_platform_east")
+
+[node name="Collision" type="CollisionShape3D" parent="PlatformEast"]
+shape = SubResource("BoxShape3D_platform_east")
+
+[node name="RampWest" type="StaticBody3D" parent="."]
+position = Vector3(-20, 1, -8)
+rotation_degrees = Vector3(-8, 0, 0)
+collision_layer = 1
+collision_mask = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="RampWest"]
+mesh = SubResource("BoxMesh_ramp")
+
+[node name="Collision" type="CollisionShape3D" parent="RampWest"]
+shape = SubResource("BoxShape3D_ramp")
+
+[node name="RampSouth" type="StaticBody3D" parent="."]
+position = Vector3(12, 0.8, 34)
+rotation_degrees = Vector3(0, 0, 7)
+collision_layer = 1
+collision_mask = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="RampSouth"]
+mesh = SubResource("BoxMesh_ramp")
+
+[node name="Collision" type="CollisionShape3D" parent="RampSouth"]
+shape = SubResource("BoxShape3D_ramp")
 
 [node name="CameraRig" type="Node3D" parent="."]
-script = ExtResource("3_camera")
+script = ExtResource("4_camera")
 target_path = NodePath("../Player")
 follow_offset = Vector3(0, 9, 12)
 follow_smoothing = 10.0
@@ -102,27 +192,33 @@ fov = 70.0
 [node name="Player" parent="." instance=ExtResource("1_player")]
 
 [node name="EnemySpawner" type="Node3D" parent="."]
-script = ExtResource("4_spawner")
+script = ExtResource("5_spawner")
 enemy_scene = ExtResource("2_enemy")
+flying_enemy_scene = ExtResource("3_flying_enemy")
 player_path = NodePath("../Player")
-initial_spawn_count = 4
-maximum_enemies = 6
+initial_spawn_count = 5
+maximum_enemies = 8
+initial_flying_count = 2
+maximum_flying_enemies = 2
 spawn_interval = 1.5
-minimum_distance = 7.0
-maximum_distance = 12.0
+minimum_distance = 10.0
+maximum_distance = 24.0
+flying_spawn_height = 7.0
+flying_minimum_distance = 14.0
+flying_maximum_distance = 28.0
 
 [node name="DebugLayer" type="CanvasLayer" parent="."]
 
 [node name="DebugOverlay" type="Label" parent="DebugLayer"]
 offset_left = 16.0
 offset_top = 16.0
-offset_right = 560.0
-offset_bottom = 125.0
+offset_right = 620.0
+offset_bottom = 145.0
 theme_override_colors/font_color = Color(0.88, 0.94, 1, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.8)
 theme_override_constants/shadow_offset_x = 2
 theme_override_constants/shadow_offset_y = 2
 theme_override_font_sizes/font_size = 16
 text = "ActionDash MVP"
-script = ExtResource("5_debug")
+script = ExtResource("6_debug")
 player_path = NodePath("../../Player")

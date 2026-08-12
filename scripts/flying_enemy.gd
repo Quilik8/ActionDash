@@ -1,9 +1,10 @@
-class_name ActionDashEnemy
+class_name ActionDashFlyingEnemy
 extends Node3D
 
-@export_category("Enemy")
+@export_category("Flying enemy")
 @export var max_health: float = 3.0
-@export var move_speed: float = 1.8
+@export var move_speed: float = 2.2
+@export var hover_height: float = 7.0
 
 var current_health: float
 var _target: Node3D
@@ -11,7 +12,7 @@ var _target: Node3D
 func _ready() -> void:
 	current_health = max_health
 	add_to_group("enemies")
-	add_to_group("ground_enemies")
+	add_to_group("flying_enemies")
 
 func initialize(target: Node3D) -> void:
 	_target = target
@@ -22,10 +23,8 @@ func _process(delta: float) -> void:
 		if _target == null:
 			return
 
-	var offset := _target.global_position - global_position
-	offset.y = 0.0
-	if offset.length_squared() > 0.04:
-		global_position += offset.normalized() * move_speed * delta
+	var desired_position := _target.global_position + Vector3.UP * hover_height
+	global_position = global_position.move_toward(desired_position, move_speed * delta)
 
 func apply_damage(amount: float) -> void:
 	current_health -= amount
