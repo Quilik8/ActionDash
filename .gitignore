@@ -1,0 +1,13 @@
+# Godot 4 generated/imported data
+.godot/
+.import/
+
+# Local/editor output
+export.cfg
+*.tmp
+*.bak
+*.log
+
+# Operating-system files
+.DS_Store
+Thumbs.db
