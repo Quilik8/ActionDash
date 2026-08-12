@@ -3,7 +3,7 @@ extends CharacterBody3D
 
 @export_category("Movement")
 @export var base_speed: float = 11.0
-@export var max_speed: float = 20.0
+@export var max_speed: float = 36.0
 @export var acceleration: float = 34.0
 @export var deceleration: float = 7.0
 @export_range(0.0, 1.0, 0.05) var momentum_preservation: float = 0.84
@@ -27,16 +27,30 @@ extends CharacterBody3D
 @export var projectile_spawn_height: float = 0.9
 @export var aim_height: float = 0.65
 @export var aim_distance: float = 60.0
-@export var vertical_aim_strength: float = 8.0
+
+@export_category("Aim debug")
+@export var show_aim_marker: bool = true
+@export_flags_3d_physics var aim_collision_mask: int = 3
 
 var _fire_timer: float = 0.0
 var _reload_timer: float = 0.0
 var current_ammo: int
 var _camera: Camera3D
+@onready var _aim_marker: MeshInstance3D = $AimMarker
 
 func _ready() -> void:
 	add_to_group("player")
 	current_ammo = magazine_size
+	_aim_marker.visible = show_aim_marker
+
+func _process(_delta: float) -> void:
+	if not show_aim_marker:
+		_aim_marker.visible = false
+		return
+	var aim_position := _get_mouse_world_position()
+	_aim_marker.visible = aim_position.is_finite()
+	if _aim_marker.visible:
+		_aim_marker.global_position = aim_position
 
 func _physics_process(delta: float) -> void:
 	_apply_gravity(delta)
@@ -76,6 +90,9 @@ func get_current_ammo() -> int:
 
 func get_magazine_size() -> int:
 	return magazine_size
+
+func get_max_speed() -> float:
+	return max_speed
 
 func _apply_gravity(delta: float) -> void:
 	if not is_on_floor():
@@ -147,6 +164,16 @@ func _get_mouse_world_position() -> Vector3:
 	var mouse_position := get_viewport().get_mouse_position()
 	var ray_origin := _camera.project_ray_origin(mouse_position)
 	var ray_direction := _camera.project_ray_normal(mouse_position)
+	var ray_end := ray_origin + ray_direction * aim_distance
+	var query := PhysicsRayQueryParameters3D.create(ray_origin, ray_end, aim_collision_mask)
+	query.collide_with_areas = true
+	query.collide_with_bodies = true
+	query.exclude = [get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if not hit.is_empty():
+		return hit["position"] as Vector3
+
+	# Fallback: project onto the player's horizontal aim plane when possible.
 	var target_position: Vector3 = Vector3.INF
 	if absf(ray_direction.y) >= 0.001:
 		var distance := (global_position.y + aim_height - ray_origin.y) / ray_direction.y
@@ -154,13 +181,5 @@ func _get_mouse_world_position() -> Vector3:
 			target_position = ray_origin + ray_direction * distance
 
 	if not target_position.is_finite():
-		target_position = ray_origin + ray_direction * aim_distance
-
-	# Keep horizontal mouse aiming comfortable while allowing cursor height to aim up/down.
-	var viewport_size := get_viewport().get_visible_rect().size
-	var screen_center_y: float = viewport_size.y * 0.5
-	var vertical_aim: float = 0.0
-	if screen_center_y > 0.0:
-		vertical_aim = clampf((screen_center_y - mouse_position.y) / screen_center_y, -1.0, 1.0)
-	target_position.y = global_position.y + projectile_spawn_height + vertical_aim * vertical_aim_strength
+		target_position = ray_end
 	return target_position

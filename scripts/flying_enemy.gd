@@ -30,3 +30,9 @@ func apply_damage(amount: float) -> void:
 	current_health -= amount
 	if current_health <= 0.0:
 		queue_free()
+
+func get_projectile_hit_position() -> Vector3:
+	return global_position
+
+func get_projectile_hit_radius() -> float:
+	return 0.95

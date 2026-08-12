@@ -25,12 +25,12 @@ func _process(delta: float) -> void:
 		queue_free()
 		return
 
-	var hit_distance_squared := hit_radius * hit_radius
 	for enemy in get_tree().get_nodes_in_group("enemies"):
 		if not is_instance_valid(enemy):
 			continue
-		var enemy_center: Vector3 = enemy.global_position + Vector3.UP * 0.8
-		if global_position.distance_squared_to(enemy_center) <= hit_distance_squared:
+		var enemy_center: Vector3 = enemy.get_projectile_hit_position()
+		var combined_radius: float = hit_radius + enemy.get_projectile_hit_radius()
+		if global_position.distance_squared_to(enemy_center) <= combined_radius * combined_radius:
 			enemy.apply_damage(_damage)
 			queue_free()
 			return

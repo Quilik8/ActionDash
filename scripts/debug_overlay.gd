@@ -25,4 +25,5 @@ func _update_text() -> void:
 		weapon_text = "   Pistola: %d / %d" % [_player.get_current_ammo(), _player.get_magazine_size()]
 		if _player.is_reloading():
 			weapon_text += "   RELOADING"
-	text = "ActionDash MVP\nWASF: W avanzar | A izquierda | S retroceder | F derecha\nSpace: saltar | Clic izquierdo: disparar\nFPS: %d   Velocidad: %.1f   Enemigos: %d%s" % [Engine.get_frames_per_second(), current_speed, get_tree().get_nodes_in_group("enemies").size(), weapon_text]
+	var maximum_speed := _player.get_max_speed() if is_instance_valid(_player) else 0.0
+	text = "ActionDash MVP\nWASF: W avanzar | A izquierda | S retroceder | F derecha\nSpace: saltar | Clic izquierdo: disparar\nFPS: %d   Velocidad: %.1f / %.1f   Enemigos: %d%s" % [Engine.get_frames_per_second(), current_speed, maximum_speed, get_tree().get_nodes_in_group("enemies").size(), weapon_text]

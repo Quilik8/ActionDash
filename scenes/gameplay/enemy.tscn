@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/enemy.gd" id="1_enemy"]
 
@@ -11,9 +11,23 @@ material = SubResource("StandardMaterial3D_enemy")
 radius = 0.5
 height = 1.7
 
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_aim"]
+radius = 0.55
+height = 1.8
+
 [node name="Enemy" type="Node3D"]
 script = ExtResource("1_enemy")
 
 [node name="Body" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.85, 0)
 mesh = SubResource("CapsuleMesh_enemy")
+
+[node name="AimHitbox" type="Area3D" parent="."]
+position = Vector3(0, 0.85, 0)
+collision_layer = 2
+collision_mask = 0
+monitoring = false
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="AimHitbox"]
+shape = SubResource("CapsuleShape3D_aim")
