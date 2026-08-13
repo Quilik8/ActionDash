@@ -93,4 +93,4 @@ func _build_branch(container: VBoxContainer, heading: String, upgrades: Array[Ac
 
 func _clear_children(container: Node) -> void:
 	for child in container.get_children():
-		child.free()
+		child.queue_free()

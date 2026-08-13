@@ -92,10 +92,7 @@ height = 1.2
 [node name="Player" type="CharacterBody3D" groups=["player"]]
 collision_mask = 5
 script = ExtResource("1_player")
-base_speed = 11.0
-normal_max_speed = 18.0
-normal_acceleration = 42.0
-extraordinary_base_speed = 18.0
+normal_speed = 18.0
 max_speed = 36.0
 acceleration = 34.0
 deceleration = 7.0

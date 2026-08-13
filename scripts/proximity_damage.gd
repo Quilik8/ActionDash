@@ -92,7 +92,7 @@ func is_kinetic_max(horizontal_speed: float, configured_max_speed: float) -> boo
 	return horizontal_speed >= configured_max_speed * kinetic_max_threshold
 
 func try_landing_attack(
-	position: Vector3,
+	world_position: Vector3,
 	horizontal_speed: float,
 	fall_speed: float,
 	air_time: float,
@@ -103,7 +103,7 @@ func try_landing_attack(
 	if air_time < landing_minimum_air_time or fall_speed < landing_minimum_fall_speed:
 		return false
 	var effective_radius := get_landing_radius(horizontal_speed, configured_max_speed)
-	var targets := _get_enemies_in_radius(position, effective_radius)
+	var targets := _get_enemies_in_radius(world_position, effective_radius)
 	if targets.is_empty():
 		return false
 
@@ -112,13 +112,13 @@ func try_landing_attack(
 	for enemy in targets:
 		enemy.apply_damage(landing_damage * multiplier, &"landing")
 	_landing_timer = landing_cooldown
-	landing_impact.emit(position, targets.size(), multiplier, effective_radius)
+	landing_impact.emit(world_position, targets.size(), multiplier, effective_radius)
 	return true
 
-func _get_enemies_in_radius(position: Vector3, radius: float) -> Array[Node]:
+func _get_enemies_in_radius(world_position: Vector3, radius: float) -> Array[Node]:
 	var result: Array[Node] = []
 	var radius_squared := radius * radius
 	for enemy in get_tree().get_nodes_in_group("enemies"):
-		if is_instance_valid(enemy) and position.distance_squared_to(enemy.global_position) <= radius_squared:
+		if is_instance_valid(enemy) and world_position.distance_squared_to(enemy.global_position) <= radius_squared:
 			result.append(enemy)
 	return result

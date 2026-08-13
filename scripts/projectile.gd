@@ -65,9 +65,9 @@ func _process(delta: float) -> void:
 			_impact(closest)
 			return
 
-func _impact(position: Vector3) -> void:
+func _impact(impact_position: Vector3) -> void:
 	_active = false
-	global_position = position
+	global_position = impact_position
 	_presentation.play_impact()
 	await get_tree().create_timer(0.18).timeout
 	queue_free()

@@ -22,7 +22,8 @@ func _process(delta: float) -> void:
 
 func _update_text() -> void:
 	var current_speed := 0.0
-	var maximum_speed := 0.0
+	var normal_speed := 18.0
+	var super_max_speed := 36.0
 	var kinetic_active := false
 	var kinetic_multiplier := 1.0
 	var movement_mode := "NORMAL"
@@ -32,7 +33,8 @@ func _update_text() -> void:
 	var energy_status := "READY"
 	if is_instance_valid(_player):
 		current_speed = _player.get_horizontal_speed()
-		maximum_speed = _player.get_max_speed()
+		normal_speed = _player.get_normal_speed()
+		super_max_speed = _player.get_extraordinary_max_speed()
 		kinetic_active = _player.is_kinetic_max_active()
 		kinetic_multiplier = _player.get_kinetic_damage_multiplier()
 		movement_mode = _player.get_movement_mode_name()
@@ -44,12 +46,14 @@ func _update_text() -> void:
 	var active_enemies := get_tree().get_node_count_in_group("enemies")
 	var remaining_enemies := _phase_controller.get_enemies_remaining() if is_instance_valid(_phase_controller) else active_enemies
 	var frame_ms := 1000.0 / maxf(float(Engine.get_frames_per_second()), 1.0)
-	text = "ActionDash MVP\nWASF: movimiento | Q: mantener SUPER | Space: salto | Clic: esfera\nFPS: %d (%.2f ms)   Movimiento: %s   Velocidad: %.1f / %.1f\nMelee: x%.2f radio %.1f   Aterrizaje estimado: %.1f\nEnemigos activos: %d   Restantes: %d\nCinético máximo: %s   Daño: x%.2f   Energía: %s" % [
+	var speed_detail := "Velocidad: %.1f   Normal Speed: %.1f" % [current_speed, normal_speed]
+	if movement_mode == "SUPER":
+		speed_detail = "Velocidad: %.1f   Super Max Speed: %.1f" % [current_speed, super_max_speed]
+	text = "ActionDash MVP\nWASF: movimiento | Q: alternar SUPER | MMB: orbitar cámara | Space: salto | Clic: esfera\nFPS: %d (%.2f ms)   Movimiento: %s   %s\nMelee: x%.2f radio %.1f   Aterrizaje estimado: %.1f\nEnemigos activos: %d   Restantes: %d\nCinético máximo: %s   Daño: x%.2f   Energía: %s" % [
 		Engine.get_frames_per_second(),
 		frame_ms,
 		movement_mode,
-		current_speed,
-		maximum_speed,
+		speed_detail,
 		melee_radius_multiplier,
 		effective_melee_radius,
 		estimated_landing_radius,

@@ -8,10 +8,7 @@ signal kinetic_state_changed(active: bool)
 signal landing_attack(position: Vector3, targets_hit: int, damage_multiplier: float, effective_radius: float)
 
 @export_category("Movement")
-@export var base_speed: float = 11.0
-@export var normal_max_speed: float = 18.0
-@export var normal_acceleration: float = 42.0
-@export var extraordinary_base_speed: float = 18.0
+@export var normal_speed: float = 18.0
 @export var max_speed: float = 36.0
 @export var acceleration: float = 34.0
 @export var deceleration: float = 7.0
@@ -37,6 +34,8 @@ signal landing_attack(position: Vector3, targets_hit: int, damage_multiplier: fl
 @export_flags_3d_physics var aim_collision_mask: int = 3
 
 var _camera: Camera3D
+var _super_movement_active: bool = false
+var _draining_super_momentum: bool = false
 var _kinetic_max_active: bool = false
 var _air_time: float = 0.0
 var _landing_horizontal_speed: float = 0.0
@@ -68,6 +67,7 @@ func _process(_delta: float) -> void:
 		_aim_marker.global_position = aim_position
 
 func _physics_process(delta: float) -> void:
+	_handle_super_toggle()
 	var was_on_floor := is_on_floor()
 	_track_airborne_state(delta, was_on_floor)
 	_apply_gravity(delta)
@@ -96,17 +96,14 @@ func get_energy_reload_remaining() -> float:
 func get_horizontal_speed() -> float:
 	return Vector3(velocity.x, 0.0, velocity.z).length()
 
-func get_max_speed() -> float:
-	return max_speed if is_super_movement_active() else normal_max_speed
+func get_normal_speed() -> float:
+	return normal_speed
 
 func get_extraordinary_max_speed() -> float:
 	return max_speed
 
-func get_current_mode_acceleration() -> float:
-	return acceleration if is_super_movement_active() else normal_acceleration
-
 func is_super_movement_active() -> bool:
-	return Input.is_action_pressed("super_movement")
+	return _super_movement_active
 
 func get_movement_mode_name() -> String:
 	return "SUPER" if is_super_movement_active() else "NORMAL"
@@ -140,32 +137,48 @@ func _move_with_inertia(delta: float) -> void:
 
 	var horizontal_velocity := Vector3(velocity.x, 0.0, velocity.z)
 	var current_speed: float = horizontal_velocity.length()
-	var super_active := is_super_movement_active()
-	var mode_base_speed := extraordinary_base_speed if super_active else base_speed
-	var mode_max_speed := max_speed if super_active else normal_max_speed
-	var mode_acceleration := acceleration if super_active else normal_acceleration
-	if desired_direction.length_squared() > 0.0:
-		var target_speed: float = mode_base_speed if current_speed < mode_base_speed else mode_max_speed
-		var desired_velocity: Vector3 = desired_direction * target_speed
-		var response: float = mode_acceleration if is_on_floor() else air_acceleration * air_control
-		if not super_active and current_speed > normal_max_speed:
-			response = super_exit_deceleration if is_on_floor() else super_exit_deceleration * air_control
-		if current_speed > 0.01:
-			var alignment: float = horizontal_velocity.normalized().dot(desired_direction)
-			var turn_resistance: float = 1.0 - (1.0 - alignment) * 0.3 * momentum_preservation
-			response *= clampf(turn_resistance, 0.35, 1.0)
-		horizontal_velocity = horizontal_velocity.move_toward(desired_velocity, response * delta)
+	if _super_movement_active:
+		_draining_super_momentum = false
+		if desired_direction.length_squared() > 0.0:
+			if current_speed < normal_speed:
+				horizontal_velocity = desired_direction * normal_speed
+			else:
+				var desired_velocity := desired_direction * max_speed
+				var response := acceleration if is_on_floor() else air_acceleration * air_control
+				if current_speed > 0.01:
+					var alignment: float = horizontal_velocity.normalized().dot(desired_direction)
+					var turn_resistance: float = 1.0 - (1.0 - alignment) * 0.3 * momentum_preservation
+					response *= clampf(turn_resistance, 0.35, 1.0)
+				horizontal_velocity = horizontal_velocity.move_toward(desired_velocity, response * delta)
+		else:
+			var coast_factor: float = lerpf(1.0, 0.22, momentum_preservation)
+			var response := deceleration * coast_factor if is_on_floor() else air_deceleration * coast_factor
+			horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, response * delta)
 	else:
-		var coast_factor: float = lerpf(1.0, 0.22, momentum_preservation)
-		var response: float = deceleration * coast_factor if is_on_floor() else air_deceleration * coast_factor
-		if not super_active and current_speed > normal_max_speed:
-			response = super_exit_deceleration if is_on_floor() else super_exit_deceleration * air_control
-		horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, response * delta)
+		var has_input := desired_direction.length_squared() > 0.0
+		if _draining_super_momentum:
+			var target_velocity := desired_direction * normal_speed if has_input else Vector3.ZERO
+			var response := super_exit_deceleration if is_on_floor() else super_exit_deceleration * air_control
+			horizontal_velocity = horizontal_velocity.move_toward(target_velocity, response * delta)
+			if (has_input and horizontal_velocity.length() <= normal_speed) or (not has_input and horizontal_velocity.is_zero_approx()):
+				_draining_super_momentum = false
+				horizontal_velocity = target_velocity
+		elif has_input:
+			horizontal_velocity = desired_direction * normal_speed
+		else:
+			horizontal_velocity = Vector3.ZERO
 
 	if horizontal_velocity.length() > max_speed:
 		horizontal_velocity = horizontal_velocity.normalized() * max_speed
 	velocity.x = horizontal_velocity.x
 	velocity.z = horizontal_velocity.z
+
+func _handle_super_toggle() -> void:
+	if not Input.is_action_just_pressed("super_movement"):
+		return
+	_super_movement_active = not _super_movement_active
+	if not _super_movement_active:
+		_draining_super_momentum = get_horizontal_speed() > normal_speed
 
 func _handle_jump() -> void:
 	if Input.is_action_just_pressed("jump") and is_on_floor():
@@ -303,14 +316,14 @@ func _ensure_super_movement_input() -> void:
 func _on_ranged_power_activated(origin: Vector3, direction: Vector3) -> void:
 	energy_attack_fired.emit(origin, direction)
 
-func _on_proximity_hit(position: Vector3, targets_hit: int, multiplier: float, effective_radius: float) -> void:
-	proximity_attack.emit(position, targets_hit, multiplier, effective_radius)
+func _on_proximity_hit(world_position: Vector3, targets_hit: int, multiplier: float, effective_radius: float) -> void:
+	proximity_attack.emit(world_position, targets_hit, multiplier, effective_radius)
 
-func _on_kinetic_wave(position: Vector3, targets_hit: int) -> void:
-	kinetic_wave.emit(position, targets_hit)
+func _on_kinetic_wave(world_position: Vector3, targets_hit: int) -> void:
+	kinetic_wave.emit(world_position, targets_hit)
 
-func _on_landing_impact(position: Vector3, targets_hit: int, multiplier: float, effective_radius: float) -> void:
-	landing_attack.emit(position, targets_hit, multiplier, effective_radius)
+func _on_landing_impact(world_position: Vector3, targets_hit: int, multiplier: float, effective_radius: float) -> void:
+	landing_attack.emit(world_position, targets_hit, multiplier, effective_radius)
 
 func _get_mouse_world_position() -> Vector3:
 	if not is_instance_valid(_camera):

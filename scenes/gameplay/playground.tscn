@@ -97,10 +97,11 @@ shape = SubResource("BoxShape3D_floor")
 
 [node name="BoundaryNorth" type="StaticBody3D" parent="."]
 position = Vector3(0, 4, -120)
-collision_layer = 1
+collision_layer = 4
 collision_mask = 1
 
 [node name="Mesh" type="MeshInstance3D" parent="BoundaryNorth"]
+visible = false
 mesh = SubResource("BoxMesh_wall_x")
 
 [node name="Collision" type="CollisionShape3D" parent="BoundaryNorth"]
@@ -120,10 +121,11 @@ shape = SubResource("BoxShape3D_wall_x")
 
 [node name="BoundaryWest" type="StaticBody3D" parent="."]
 position = Vector3(-150, 4, 0)
-collision_layer = 1
+collision_layer = 4
 collision_mask = 1
 
 [node name="Mesh" type="MeshInstance3D" parent="BoundaryWest"]
+visible = false
 mesh = SubResource("BoxMesh_wall_z")
 
 [node name="Collision" type="CollisionShape3D" parent="BoundaryWest"]
@@ -131,10 +133,11 @@ shape = SubResource("BoxShape3D_wall_z")
 
 [node name="BoundaryEast" type="StaticBody3D" parent="."]
 position = Vector3(150, 4, 0)
-collision_layer = 1
+collision_layer = 4
 collision_mask = 1
 
 [node name="Mesh" type="MeshInstance3D" parent="BoundaryEast"]
+visible = false
 mesh = SubResource("BoxMesh_wall_z")
 
 [node name="Collision" type="CollisionShape3D" parent="BoundaryEast"]
@@ -249,6 +252,13 @@ target_path = NodePath("../Player")
 follow_offset = Vector3(0, 9, 12)
 follow_smoothing = 10.0
 look_height = 0.7
+high_speed_distance_multiplier = 1.35
+normal_fov = 70.0
+high_speed_fov = 82.0
+framing_smoothing = 5.0
+orbit_sensitivity = 0.004
+minimum_pitch_degrees = -20.0
+maximum_pitch_degrees = 65.0
 
 [node name="Camera3D" type="Camera3D" parent="CameraRig"]
 current = true
