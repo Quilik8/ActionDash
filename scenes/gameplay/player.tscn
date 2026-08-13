@@ -1,9 +1,10 @@
-[gd_scene load_steps=20 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://scripts/proximity_damage.gd" id="2_proximity"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/projectile.tscn" id="3_projectile"]
 [ext_resource type="Script" path="res://scripts/player_visuals.gd" id="4_visuals"]
+[ext_resource type="Script" path="res://scripts/energy_sphere_power.gd" id="5_power"]
 
 [sub_resource type="StandardMaterial3D" id="PlayerMaterial"]
 albedo_color = Color(0.18, 0.55, 0.9, 1)
@@ -90,7 +91,6 @@ height = 1.2
 
 [node name="Player" type="CharacterBody3D" groups=["player"]]
 script = ExtResource("1_player")
-energy_projectile_scene = ExtResource("3_projectile")
 base_speed = 11.0
 max_speed = 36.0
 acceleration = 34.0
@@ -103,11 +103,6 @@ air_acceleration = 11.0
 air_deceleration = 1.8
 fall_limit_y = -12.0
 respawn_position = Vector3(0, 0, 0)
-energy_damage = 4.0
-energy_speed = 52.0
-energy_size = 0.48
-energy_reload_duration = 4.0
-energy_lifetime = 1.8
 aim_distance = 60.0
 show_aim_marker = true
 aim_collision_mask = 3
@@ -165,6 +160,18 @@ position = Vector3(0, 0.9, 0)
 
 [node name="ProximityDamage" type="Node" parent="Gameplay"]
 script = ExtResource("2_proximity")
+kinetic_max_impact_multiplier = 2.0
+
+[node name="RangedPower" type="Node" parent="Gameplay"]
+script = ExtResource("5_power")
+projectile_scene = ExtResource("3_projectile")
+cooldown = 3.5
+damage = 4.0
+projectile_count = 1
+impact_behavior = &"standard"
+projectile_speed = 52.0
+projectile_size = 0.48
+projectile_lifetime = 1.8
 
 [node name="Debug" type="Node3D" parent="."]
 

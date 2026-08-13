@@ -6,28 +6,47 @@ signal died
 
 @export_category("Flying enemy")
 @export var max_health: float = 3.0
-@export var move_speed: float = 2.2
-@export var hover_height: float = 7.0
+
+@export_category("Territorial flight")
+@export var drift_speed: float = 1.1
+@export var territory_radius: float = 5.5
+@export var hover_amplitude: float = 0.65
+@export var hover_frequency: float = 1.15
+@export var decision_interval_min: float = 2.0
+@export var decision_interval_max: float = 4.0
 
 var current_health: float
-var _target: Node3D
+var _home_position: Vector3
+var _drift_target: Vector3
+var _decision_timer: float = 0.0
+var _hover_time: float = 0.0
+var _random := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	current_health = max_health
 	add_to_group("enemies")
 	add_to_group("flying_enemies")
+	_home_position = global_position
+	_drift_target = global_position
+	_random.seed = hash(str(get_instance_id(), global_position))
+	_hover_time = _random.randf_range(0.0, TAU)
+	_schedule_next_decision()
 
-func initialize(target: Node3D) -> void:
-	_target = target
+func initialize(home_position: Vector3) -> void:
+	_home_position = home_position
+	_drift_target = home_position
 
 func _process(delta: float) -> void:
-	if not is_instance_valid(_target):
-		_target = get_tree().get_first_node_in_group("player") as Node3D
-		if _target == null:
-			return
+	_hover_time += delta * hover_frequency
+	_decision_timer -= delta
+	var desired := _drift_target
+	desired.y = _home_position.y + sin(_hover_time) * hover_amplitude
+	global_position = global_position.move_toward(desired, drift_speed * delta)
+	if global_position.distance_squared_to(desired) < 0.2 or _decision_timer <= 0.0:
+		_choose_drift_target()
 
-	var desired_position := _target.global_position + Vector3.UP * hover_height
-	global_position = global_position.move_toward(desired_position, move_speed * delta)
+func get_home_position() -> Vector3:
+	return _home_position
 
 func apply_damage(amount: float) -> void:
 	current_health -= amount
@@ -41,3 +60,12 @@ func get_projectile_hit_position() -> Vector3:
 
 func get_projectile_hit_radius() -> float:
 	return 0.95
+
+func _choose_drift_target() -> void:
+	var angle := _random.randf_range(0.0, TAU)
+	var distance := sqrt(_random.randf()) * territory_radius
+	_drift_target = _home_position + Vector3(cos(angle), 0.0, sin(angle)) * distance
+	_schedule_next_decision()
+
+func _schedule_next_decision() -> void:
+	_decision_timer = _random.randf_range(decision_interval_min, decision_interval_max)

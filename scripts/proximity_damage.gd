@@ -15,6 +15,7 @@ signal landing_impact(position: Vector3, targets_hit: int, damage_multiplier: fl
 
 @export_category("Maximum kinetic state")
 @export_range(0.5, 1.0, 0.01) var kinetic_max_threshold: float = 0.9
+@export var kinetic_max_impact_multiplier: float = 2.0
 @export var kinetic_wave_radius: float = 5.0
 @export var kinetic_wave_damage: float = 1.5
 @export var kinetic_wave_cooldown: float = 1.25
@@ -43,14 +44,16 @@ func _physics_process(delta: float) -> void:
 	if player == null:
 		return
 	var multiplier := get_damage_multiplier(player.get_horizontal_speed(), player.max_speed)
+	var maximum_state := is_kinetic_max(player.get_horizontal_speed(), player.max_speed)
+	var direct_multiplier := multiplier * (kinetic_max_impact_multiplier if maximum_state else 1.0)
 	var targets := _get_enemies_in_radius(player.global_position, damage_radius)
 	if targets.is_empty():
 		return
 	for enemy in targets:
-		enemy.apply_damage(base_damage * multiplier)
-	proximity_hit.emit(player.global_position, targets.size(), multiplier)
+		enemy.apply_damage(base_damage * direct_multiplier)
+	proximity_hit.emit(player.global_position, targets.size(), direct_multiplier)
 
-	if is_kinetic_max(player.get_horizontal_speed(), player.max_speed) and _wave_timer <= 0.0:
+	if maximum_state and _wave_timer <= 0.0:
 		_wave_timer = kinetic_wave_cooldown
 		var wave_targets := _get_enemies_in_radius(player.global_position, kinetic_wave_radius)
 		for enemy in wave_targets:

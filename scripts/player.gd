@@ -23,13 +23,8 @@ signal landing_attack(position: Vector3, targets_hit: int, damage_multiplier: fl
 @export var fall_limit_y: float = -12.0
 @export var respawn_position: Vector3 = Vector3.ZERO
 
-@export_category("Energy attack")
-@export var energy_projectile_scene: PackedScene
-@export var energy_damage: float = 4.0
-@export var energy_speed: float = 52.0
-@export var energy_size: float = 0.48
-@export var energy_reload_duration: float = 4.0
-@export var energy_lifetime: float = 1.8
+@export_category("Ranged attack")
+@export var ranged_power_path: NodePath = NodePath("Gameplay/RangedPower")
 @export var aim_height: float = 0.65
 @export var aim_distance: float = 60.0
 
@@ -37,7 +32,6 @@ signal landing_attack(position: Vector3, targets_hit: int, damage_multiplier: fl
 @export var show_aim_marker: bool = true
 @export_flags_3d_physics var aim_collision_mask: int = 3
 
-var _energy_reload_remaining: float = 0.0
 var _camera: Camera3D
 var _kinetic_max_active: bool = false
 var _air_time: float = 0.0
@@ -47,6 +41,7 @@ var _landing_fall_speed: float = 0.0
 @onready var _attack_origin: Marker3D = $AttackOrigin
 @onready var _aim_marker: MeshInstance3D = $Debug/AimMarker
 @onready var _proximity_damage: ActionDashProximityDamage = $Gameplay/ProximityDamage
+@onready var _ranged_power: ActionDashRangedPower = get_node(ranged_power_path) as ActionDashRangedPower
 
 func _ready() -> void:
 	add_to_group("player")
@@ -54,6 +49,7 @@ func _ready() -> void:
 	_proximity_damage.proximity_hit.connect(_on_proximity_hit)
 	_proximity_damage.kinetic_wave_triggered.connect(_on_kinetic_wave)
 	_proximity_damage.landing_impact.connect(_on_landing_impact)
+	_ranged_power.activated.connect(_on_ranged_power_activated)
 
 func _process(_delta: float) -> void:
 	if not show_aim_marker:
@@ -75,7 +71,6 @@ func _physics_process(delta: float) -> void:
 	_update_kinetic_state()
 	_check_fall_recovery()
 
-	_energy_reload_remaining = maxf(_energy_reload_remaining - delta, 0.0)
 	if Input.is_action_just_pressed("shoot") and is_energy_ready():
 		_fire_energy_projectile()
 
@@ -86,10 +81,10 @@ func _check_fall_recovery() -> void:
 		_reset_airborne_state()
 
 func is_energy_ready() -> bool:
-	return _energy_reload_remaining <= 0.0
+	return is_instance_valid(_ranged_power) and _ranged_power.is_ready()
 
 func get_energy_reload_remaining() -> float:
-	return _energy_reload_remaining
+	return _ranged_power.get_cooldown_remaining() if is_instance_valid(_ranged_power) else 0.0
 
 func get_horizontal_speed() -> float:
 	return Vector3(velocity.x, 0.0, velocity.z).length()
@@ -173,7 +168,7 @@ func _update_kinetic_state() -> void:
 	kinetic_state_changed.emit(active)
 
 func _fire_energy_projectile() -> bool:
-	if energy_projectile_scene == null or not is_energy_ready():
+	if not is_energy_ready():
 		return false
 	var aim_position := _get_mouse_world_position()
 	if not aim_position.is_finite():
@@ -181,21 +176,28 @@ func _fire_energy_projectile() -> bool:
 	return _spawn_energy_projectile_toward(aim_position)
 
 func _spawn_energy_projectile_toward(aim_position: Vector3) -> bool:
-	if energy_projectile_scene == null or not is_energy_ready():
+	if not is_energy_ready():
 		return false
 	var origin := _attack_origin.global_position
-	var direction := aim_position - origin
-	if direction.length_squared() < 0.0001:
-		return false
-	direction = direction.normalized()
+	return _ranged_power.activate(get_tree().current_scene, origin, aim_position)
 
-	var projectile := energy_projectile_scene.instantiate() as ActionDashProjectile
-	get_tree().current_scene.add_child(projectile)
-	projectile.global_position = origin
-	projectile.setup(direction, energy_speed, energy_damage, energy_size, energy_lifetime)
-	_energy_reload_remaining = energy_reload_duration
+func set_ranged_power(power: ActionDashRangedPower) -> void:
+	if power == null:
+		return
+	if is_instance_valid(_ranged_power):
+		if _ranged_power.activated.is_connected(_on_ranged_power_activated):
+			_ranged_power.activated.disconnect(_on_ranged_power_activated)
+		_ranged_power.queue_free()
+	$Gameplay.add_child(power)
+	_ranged_power = power
+	_ranged_power.activated.connect(_on_ranged_power_activated)
+
+func apply_ranged_power_modifiers(modifiers: Dictionary) -> void:
+	if is_instance_valid(_ranged_power):
+		_ranged_power.apply_runtime_modifiers(modifiers)
+
+func _on_ranged_power_activated(origin: Vector3, direction: Vector3) -> void:
 	energy_attack_fired.emit(origin, direction)
-	return true
 
 func _on_proximity_hit(position: Vector3, targets_hit: int, multiplier: float) -> void:
 	proximity_attack.emit(position, targets_hit, multiplier)

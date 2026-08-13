@@ -6,29 +6,44 @@ signal died
 
 @export_category("Enemy")
 @export var max_health: float = 3.0
-@export var move_speed: float = 1.8
+
+@export_category("Territorial idle")
+@export var wander_speed: float = 0.75
+@export var territory_radius: float = 4.0
+@export var decision_interval_min: float = 1.5
+@export var decision_interval_max: float = 3.5
+@export var arrival_distance: float = 0.25
 
 var current_health: float
-var _target: Node3D
+var _home_position: Vector3
+var _wander_target: Vector3
+var _decision_timer: float = 0.0
+var _random := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	current_health = max_health
 	add_to_group("enemies")
 	add_to_group("ground_enemies")
+	_home_position = global_position
+	_wander_target = global_position
+	_random.seed = hash(str(get_instance_id(), global_position))
+	_schedule_next_decision()
 
-func initialize(target: Node3D) -> void:
-	_target = target
+func initialize(home_position: Vector3) -> void:
+	_home_position = home_position
+	_wander_target = home_position
 
 func _process(delta: float) -> void:
-	if not is_instance_valid(_target):
-		_target = get_tree().get_first_node_in_group("player") as Node3D
-		if _target == null:
-			return
-
-	var offset := _target.global_position - global_position
+	_decision_timer -= delta
+	var offset := _wander_target - global_position
 	offset.y = 0.0
-	if offset.length_squared() > 0.04:
-		global_position += offset.normalized() * move_speed * delta
+	if offset.length() > arrival_distance:
+		global_position += offset.normalized() * minf(wander_speed * delta, offset.length())
+	elif _decision_timer <= 0.0:
+		_choose_wander_target()
+
+func get_home_position() -> Vector3:
+	return _home_position
 
 func apply_damage(amount: float) -> void:
 	current_health -= amount
@@ -42,3 +57,12 @@ func get_projectile_hit_position() -> Vector3:
 
 func get_projectile_hit_radius() -> float:
 	return 0.75
+
+func _choose_wander_target() -> void:
+	var angle := _random.randf_range(0.0, TAU)
+	var distance := sqrt(_random.randf()) * territory_radius
+	_wander_target = _home_position + Vector3(cos(angle), 0.0, sin(angle)) * distance
+	_schedule_next_decision()
+
+func _schedule_next_decision() -> void:
+	_decision_timer = _random.randf_range(decision_interval_min, decision_interval_max)
