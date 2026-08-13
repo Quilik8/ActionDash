@@ -18,20 +18,33 @@ var current_health: float
 var _home_position: Vector3
 var _wander_target: Vector3
 var _decision_timer: float = 0.0
+var _defeated: bool = false
 var _random := RandomNumberGenerator.new()
 
 func _ready() -> void:
+	_random.seed = hash(str(get_instance_id()))
+	deactivate()
+
+func activate(home_position: Vector3) -> void:
+	_home_position = home_position
+	_wander_target = home_position
+	global_position = home_position
 	current_health = max_health
+	_defeated = false
+	visible = true
 	add_to_group("enemies")
 	add_to_group("ground_enemies")
-	_home_position = global_position
-	_wander_target = global_position
-	_random.seed = hash(str(get_instance_id(), global_position))
+	set_process(true)
 	_schedule_next_decision()
 
 func initialize(home_position: Vector3) -> void:
-	_home_position = home_position
-	_wander_target = home_position
+	activate(home_position)
+
+func deactivate() -> void:
+	visible = false
+	set_process(false)
+	remove_from_group("enemies")
+	remove_from_group("ground_enemies")
 
 func _process(delta: float) -> void:
 	_decision_timer -= delta
@@ -45,12 +58,14 @@ func _process(delta: float) -> void:
 func get_home_position() -> Vector3:
 	return _home_position
 
-func apply_damage(amount: float) -> void:
+func apply_damage(amount: float, _damage_type: StringName = &"generic") -> void:
+	if _defeated:
+		return
 	current_health -= amount
 	damaged.emit(amount, maxf(current_health, 0.0))
 	if current_health <= 0.0:
+		_defeated = true
 		died.emit()
-		queue_free()
 
 func get_projectile_hit_position() -> Vector3:
 	return global_position + Vector3.UP * 0.85

@@ -1,0 +1,171 @@
+[gd_resource type="Resource" script_class="ActionDashUpgradeCatalog" load_steps=18 format=3]
+
+[ext_resource type="Script" path="res://scripts/upgrade_catalog.gd" id="1_catalog"]
+[ext_resource type="Script" path="res://scripts/run_upgrade.gd" id="2_upgrade"]
+
+[sub_resource type="Resource" id="CardKinetic"]
+script = ExtResource("2_upgrade")
+id = &"card_kinetic_force"
+title = "Fuerza cinética"
+description = "+0.35 de daño melee base"
+category = "Card"
+stat_id = &"melee_damage"
+operation = "Add"
+value = 0.35
+
+[sub_resource type="Resource" id="CardEnergy"]
+script = ExtResource("2_upgrade")
+id = &"card_energy_core"
+title = "Núcleo de energía"
+description = "+1.0 de daño de esfera"
+category = "Card"
+stat_id = &"ranged_damage"
+operation = "Add"
+value = 1.0
+
+[sub_resource type="Resource" id="CardCharge"]
+script = ExtResource("2_upgrade")
+id = &"card_rapid_charge"
+title = "Carga rápida"
+description = "-15% de cooldown de esfera"
+category = "Card"
+stat_id = &"ranged_cooldown"
+operation = "Multiply"
+value = 0.85
+
+[sub_resource type="Resource" id="CardRadius"]
+script = ExtResource("2_upgrade")
+id = &"card_wide_strike"
+title = "Barrido amplio"
+description = "+0.45 de radio melee"
+category = "Card"
+stat_id = &"melee_radius"
+operation = "Add"
+value = 0.45
+
+[sub_resource type="Resource" id="CardOrbSpeed"]
+script = ExtResource("2_upgrade")
+id = &"card_accelerated_orb"
+title = "Proyectil acelerado"
+description = "+8 de velocidad de esfera"
+category = "Card"
+stat_id = &"ranged_speed"
+operation = "Add"
+value = 8.0
+
+[sub_resource type="Resource" id="CardVelocity"]
+script = ExtResource("2_upgrade")
+id = &"card_velocity"
+title = "Límite roto"
+description = "+3 de velocidad máxima"
+category = "Card"
+stat_id = &"max_speed"
+operation = "Add"
+value = 3.0
+
+[sub_resource type="Resource" id="CardDrive"]
+script = ExtResource("2_upgrade")
+id = &"card_drive"
+title = "Impulso"
+description = "+4 de aceleración"
+category = "Card"
+stat_id = &"acceleration"
+operation = "Add"
+value = 4.0
+
+[sub_resource type="Resource" id="MoveSpeed"]
+script = ExtResource("2_upgrade")
+id = &"tree_move_speed"
+title = "Velocidad máxima +"
+description = "+2.5 de velocidad máxima"
+category = "Movement"
+stat_id = &"max_speed"
+operation = "Add"
+value = 2.5
+
+[sub_resource type="Resource" id="MoveAccel"]
+script = ExtResource("2_upgrade")
+id = &"tree_move_accel"
+title = "Aceleración +"
+description = "+3 de aceleración"
+category = "Movement"
+stat_id = &"acceleration"
+operation = "Add"
+value = 3.0
+
+[sub_resource type="Resource" id="MoveJump"]
+script = ExtResource("2_upgrade")
+id = &"tree_move_jump"
+title = "Salto cinético"
+description = "+1 de fuerza de salto"
+category = "Movement"
+stat_id = &"jump_force"
+operation = "Add"
+value = 1.0
+
+[sub_resource type="Resource" id="MeleeDamage"]
+script = ExtResource("2_upgrade")
+id = &"tree_melee_damage"
+title = "Impacto +"
+description = "+0.30 de daño melee"
+category = "Melee"
+stat_id = &"melee_damage"
+operation = "Add"
+value = 0.3
+
+[sub_resource type="Resource" id="MeleeRadius"]
+script = ExtResource("2_upgrade")
+id = &"tree_melee_radius"
+title = "Radio cinético +"
+description = "+0.35 de radio melee"
+category = "Melee"
+stat_id = &"melee_radius"
+operation = "Add"
+value = 0.35
+
+[sub_resource type="Resource" id="MeleeMax"]
+script = ExtResource("2_upgrade")
+id = &"tree_melee_max"
+title = "Impacto máximo +"
+description = "+0.25 al multiplicador máximo"
+category = "Melee"
+stat_id = &"kinetic_max_bonus"
+operation = "Add"
+value = 0.25
+
+[sub_resource type="Resource" id="RangedDamage"]
+script = ExtResource("2_upgrade")
+id = &"tree_ranged_damage"
+title = "Esfera potente"
+description = "+0.8 de daño de esfera"
+category = "Ranged"
+stat_id = &"ranged_damage"
+operation = "Add"
+value = 0.8
+
+[sub_resource type="Resource" id="RangedCooldown"]
+script = ExtResource("2_upgrade")
+id = &"tree_ranged_cooldown"
+title = "Recarga eficiente"
+description = "-10% de cooldown"
+category = "Ranged"
+stat_id = &"ranged_cooldown"
+operation = "Multiply"
+value = 0.9
+
+[sub_resource type="Resource" id="RangedSize"]
+script = ExtResource("2_upgrade")
+id = &"tree_ranged_size"
+title = "Esfera expandida"
+description = "+0.10 de tamaño"
+category = "Ranged"
+stat_id = &"ranged_size"
+operation = "Add"
+value = 0.1
+
+[resource]
+script = ExtResource("1_catalog")
+cards = Array[ExtResource("2_upgrade")]([SubResource("CardKinetic"), SubResource("CardEnergy"), SubResource("CardCharge"), SubResource("CardRadius"), SubResource("CardOrbSpeed"), SubResource("CardVelocity"), SubResource("CardDrive")])
+movement_tree = Array[ExtResource("2_upgrade")]([SubResource("MoveSpeed"), SubResource("MoveAccel"), SubResource("MoveJump")])
+melee_tree = Array[ExtResource("2_upgrade")]([SubResource("MeleeDamage"), SubResource("MeleeRadius"), SubResource("MeleeMax")])
+ranged_tree = Array[ExtResource("2_upgrade")]([SubResource("RangedDamage"), SubResource("RangedCooldown"), SubResource("RangedSize")])

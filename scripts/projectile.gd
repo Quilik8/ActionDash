@@ -43,11 +43,24 @@ func _process(delta: float) -> void:
 	for enemy in get_tree().get_nodes_in_group("enemies"):
 		if not is_instance_valid(enemy):
 			continue
+		if enemy.has_method("get_projectile_hit_zone"):
+			var hit_zone: StringName = enemy.get_projectile_hit_zone(previous_position, next_position, _hit_radius)
+			if hit_zone == &"weak_point":
+				enemy.hit_weak_point(_damage)
+				enemy_hit.emit(enemy.get_projectile_hit_position(), _damage)
+				_impact(enemy.get_projectile_hit_position())
+				return
+			if hit_zone == &"body":
+				enemy.apply_damage(_damage, &"ranged")
+				enemy_hit.emit(enemy.get_projectile_hit_position(), _damage)
+				_impact(enemy.get_projectile_hit_position())
+				return
+			continue
 		var enemy_center: Vector3 = enemy.get_projectile_hit_position()
 		var closest := Geometry3D.get_closest_point_to_segment(enemy_center, previous_position, next_position)
 		var combined_radius: float = _hit_radius + enemy.get_projectile_hit_radius()
 		if closest.distance_squared_to(enemy_center) <= combined_radius * combined_radius:
-			enemy.apply_damage(_damage)
+			enemy.apply_damage(_damage, &"ranged")
 			enemy_hit.emit(closest, _damage)
 			_impact(closest)
 			return

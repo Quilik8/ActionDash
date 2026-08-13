@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="ActionDashPhaseConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/phase_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+phase_number = 1
+display_name = "FASE 1"
+variant_id = &"standard_01"
+total_enemies = 38
+maximum_active_enemies = 14
+time_limit_seconds = 105.0
+group_count = 4
+minimum_enemies_per_group = 3
+maximum_enemies_per_group = 5
+group_spread_radius = 7.0
+minimum_group_center_distance = 40.0
+flying_enemy_ratio = 0.14
+spawn_interval = 0.5

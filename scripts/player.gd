@@ -37,6 +37,7 @@ var _kinetic_max_active: bool = false
 var _air_time: float = 0.0
 var _landing_horizontal_speed: float = 0.0
 var _landing_fall_speed: float = 0.0
+var _base_run_stats: Dictionary = {}
 
 @onready var _attack_origin: Marker3D = $AttackOrigin
 @onready var _aim_marker: MeshInstance3D = $Debug/AimMarker
@@ -50,6 +51,7 @@ func _ready() -> void:
 	_proximity_damage.kinetic_wave_triggered.connect(_on_kinetic_wave)
 	_proximity_damage.landing_impact.connect(_on_landing_impact)
 	_ranged_power.activated.connect(_on_ranged_power_activated)
+	_capture_base_run_stats()
 
 func _process(_delta: float) -> void:
 	if not show_aim_marker:
@@ -195,6 +197,65 @@ func set_ranged_power(power: ActionDashRangedPower) -> void:
 func apply_ranged_power_modifiers(modifiers: Dictionary) -> void:
 	if is_instance_valid(_ranged_power):
 		_ranged_power.apply_runtime_modifiers(modifiers)
+
+func apply_run_stat_modifier(stat_id: StringName, operation: String, value: float) -> void:
+	match stat_id:
+		&"max_speed":
+			max_speed = _modified_value(max_speed, operation, value)
+		&"acceleration":
+			acceleration = _modified_value(acceleration, operation, value)
+		&"jump_force":
+			jump_force = _modified_value(jump_force, operation, value)
+		&"momentum":
+			momentum_preservation = clampf(_modified_value(momentum_preservation, operation, value), 0.0, 1.0)
+		&"melee_damage":
+			_proximity_damage.base_damage = _modified_value(_proximity_damage.base_damage, operation, value)
+		&"melee_radius":
+			_proximity_damage.damage_radius = _modified_value(_proximity_damage.damage_radius, operation, value)
+		&"kinetic_max_bonus":
+			_proximity_damage.kinetic_max_impact_multiplier = _modified_value(_proximity_damage.kinetic_max_impact_multiplier, operation, value)
+		&"ranged_damage":
+			_ranged_power.damage = _modified_value(_ranged_power.damage, operation, value)
+		&"ranged_cooldown":
+			_ranged_power.cooldown = maxf(_modified_value(_ranged_power.cooldown, operation, value), 0.2)
+		&"ranged_speed":
+			if _ranged_power is ActionDashEnergySpherePower:
+				var energy_power := _ranged_power as ActionDashEnergySpherePower
+				energy_power.projectile_speed = _modified_value(energy_power.projectile_speed, operation, value)
+		&"ranged_size":
+			if _ranged_power is ActionDashEnergySpherePower:
+				var energy_power := _ranged_power as ActionDashEnergySpherePower
+				energy_power.projectile_size = maxf(_modified_value(energy_power.projectile_size, operation, value), 0.05)
+
+func get_run_stat(stat_id: StringName) -> float:
+	match stat_id:
+		&"max_speed": return max_speed
+		&"acceleration": return acceleration
+		&"jump_force": return jump_force
+		&"momentum": return momentum_preservation
+		&"melee_damage": return _proximity_damage.base_damage
+		&"melee_radius": return _proximity_damage.damage_radius
+		&"kinetic_max_bonus": return _proximity_damage.kinetic_max_impact_multiplier
+		&"ranged_damage": return _ranged_power.damage
+		&"ranged_cooldown": return _ranged_power.cooldown
+		&"ranged_speed": return (_ranged_power as ActionDashEnergySpherePower).projectile_speed if _ranged_power is ActionDashEnergySpherePower else 0.0
+		&"ranged_size": return (_ranged_power as ActionDashEnergySpherePower).projectile_size if _ranged_power is ActionDashEnergySpherePower else 0.0
+	return 0.0
+
+func restore_base_run_stats() -> void:
+	for stat_id in _base_run_stats:
+		_set_run_stat(stat_id, _base_run_stats[stat_id])
+
+func _capture_base_run_stats() -> void:
+	for stat_id in [&"max_speed", &"acceleration", &"jump_force", &"momentum", &"melee_damage", &"melee_radius", &"kinetic_max_bonus", &"ranged_damage", &"ranged_cooldown", &"ranged_speed", &"ranged_size"]:
+		_base_run_stats[stat_id] = get_run_stat(stat_id)
+
+func _set_run_stat(stat_id: StringName, value: float) -> void:
+	var current := get_run_stat(stat_id)
+	apply_run_stat_modifier(stat_id, "Add", value - current)
+
+func _modified_value(current: float, operation: String, value: float) -> float:
+	return current * value if operation == "Multiply" else current + value
 
 func _on_ranged_power_activated(origin: Vector3, direction: Vector3) -> void:
 	energy_attack_fired.emit(origin, direction)

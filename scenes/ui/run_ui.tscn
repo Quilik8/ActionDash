@@ -1,0 +1,142 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/run_ui.gd" id="1_ui"]
+
+[node name="RunUI" type="CanvasLayer"]
+script = ExtResource("1_ui")
+
+[node name="HUD" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PhaseLabel" type="Label" parent="HUD"]
+layout_mode = 0
+offset_left = 710.0
+offset_top = 16.0
+offset_right = 944.0
+offset_bottom = 42.0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.85)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 20
+text = "FASE 1"
+horizontal_alignment = 2
+
+[node name="EnemyLabel" type="Label" parent="HUD"]
+layout_mode = 0
+offset_left = 710.0
+offset_top = 44.0
+offset_right = 944.0
+offset_bottom = 68.0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.85)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 17
+text = "ENEMIGOS: 38"
+horizontal_alignment = 2
+
+[node name="TimeLabel" type="Label" parent="HUD"]
+layout_mode = 0
+offset_left = 710.0
+offset_top = 70.0
+offset_right = 944.0
+offset_bottom = 94.0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.85)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 17
+text = "TIEMPO: 01:45"
+horizontal_alignment = 2
+
+[node name="Overlay" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="MessagePanel" type="PanelContainer" parent="Overlay"]
+layout_mode = 0
+offset_left = 315.0
+offset_top = 42.0
+offset_right = 645.0
+offset_bottom = 100.0
+
+[node name="Message" type="Label" parent="Overlay/MessagePanel"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "FASE COMPLETADA"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CardsPanel" type="PanelContainer" parent="Overlay"]
+layout_mode = 0
+offset_left = 120.0
+offset_top = 160.0
+offset_right = 840.0
+offset_bottom = 335.0
+
+[node name="Cards" type="HBoxContainer" parent="Overlay/CardsPanel"]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="TreePanel" type="PanelContainer" parent="Overlay"]
+layout_mode = 0
+offset_left = 95.0
+offset_top = 70.0
+offset_right = 865.0
+offset_bottom = 485.0
+
+[node name="TreeLayout" type="VBoxContainer" parent="Overlay/TreePanel"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="Overlay/TreePanel/TreeLayout"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "ÁRBOLES DE LA RUN"
+horizontal_alignment = 1
+
+[node name="Points" type="Label" parent="Overlay/TreePanel/TreeLayout"]
+layout_mode = 2
+text = "PUNTOS DE RUN DISPONIBLES: 1"
+horizontal_alignment = 1
+
+[node name="Branches" type="HBoxContainer" parent="Overlay/TreePanel/TreeLayout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 14
+alignment = 1
+
+[node name="Movement" type="VBoxContainer" parent="Overlay/TreePanel/TreeLayout/Branches"]
+custom_minimum_size = Vector2(235, 0)
+layout_mode = 2
+
+[node name="Melee" type="VBoxContainer" parent="Overlay/TreePanel/TreeLayout/Branches"]
+custom_minimum_size = Vector2(235, 0)
+layout_mode = 2
+
+[node name="Ranged" type="VBoxContainer" parent="Overlay/TreePanel/TreeLayout/Branches"]
+custom_minimum_size = Vector2(235, 0)
+layout_mode = 2
+
+[node name="Continue" type="Button" parent="Overlay/TreePanel/TreeLayout"]
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+text = "CONTINUAR (puedes guardar puntos)"
+
+[node name="Restart" type="Button" parent="Overlay"]
+layout_mode = 0
+offset_left = 375.0
+offset_top = 300.0
+offset_right = 585.0
+offset_bottom = 350.0
+text = "REINICIAR RUN"

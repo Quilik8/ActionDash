@@ -1,0 +1,91 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scripts/boss.gd" id="1_boss"]
+
+[sub_resource type="StandardMaterial3D" id="BossMaterial"]
+albedo_color = Color(0.32, 0.08, 0.42, 1)
+roughness = 0.62
+
+[sub_resource type="CapsuleMesh" id="BossMesh"]
+material = SubResource("BossMaterial")
+radius = 1.8
+height = 4.2
+
+[sub_resource type="CapsuleShape3D" id="BossShape"]
+radius = 1.9
+height = 4.4
+
+[sub_resource type="StandardMaterial3D" id="WeakMaterial"]
+albedo_color = Color(1, 0.25, 0.08, 1)
+emission_enabled = true
+emission = Color(1, 0.08, 0.01, 1)
+roughness = 0.2
+
+[sub_resource type="SphereMesh" id="WeakMesh"]
+material = SubResource("WeakMaterial")
+radius = 0.72
+height = 1.44
+
+[sub_resource type="SphereShape3D" id="WeakShape"]
+radius = 0.72
+
+[sub_resource type="StandardMaterial3D" id="AuraMaterial"]
+transparency = 1
+albedo_color = Color(1, 0.55, 0.08, 0.22)
+emission_enabled = true
+emission = Color(0.85, 0.2, 0.03, 1)
+shading_mode = 0
+
+[sub_resource type="SphereMesh" id="AuraMesh"]
+material = SubResource("AuraMaterial")
+radius = 2.45
+height = 4.9
+
+[node name="Boss" type="Node3D"]
+script = ExtResource("1_boss")
+
+[node name="VisualRoot" type="Node3D" parent="."]
+
+[node name="Model" type="Node3D" parent="VisualRoot"]
+
+[node name="Body" type="MeshInstance3D" parent="VisualRoot/Model"]
+position = Vector3(0, 2.1, 0)
+mesh = SubResource("BossMesh")
+
+[node name="WeakPoint" type="MeshInstance3D" parent="VisualRoot/Model"]
+position = Vector3(0, 2.5, 1.78)
+mesh = SubResource("WeakMesh")
+
+[node name="VulnerabilityAura" type="MeshInstance3D" parent="VisualRoot"]
+position = Vector3(0, 2.1, 0)
+mesh = SubResource("AuraMesh")
+
+[node name="Detection" type="Node3D" parent="."]
+
+[node name="BodyAimHitbox" type="Area3D" parent="Detection"]
+position = Vector3(0, 2.1, 0)
+collision_layer = 2
+collision_mask = 0
+monitoring = false
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Detection/BodyAimHitbox"]
+shape = SubResource("BossShape")
+
+[node name="WeakPointAimHitbox" type="Area3D" parent="Detection"]
+position = Vector3(0, 2.5, 1.78)
+collision_layer = 2
+collision_mask = 0
+monitoring = false
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Detection/WeakPointAimHitbox"]
+shape = SubResource("WeakShape")
+
+[node name="WeakPointCenter" type="Marker3D" parent="Detection"]
+position = Vector3(0, 2.5, 1.78)
+
+[node name="FutureSockets" type="Node3D" parent="."]
+
+[node name="BossVFXOrigin" type="Marker3D" parent="FutureSockets"]
+position = Vector3(0, 2.1, 0)

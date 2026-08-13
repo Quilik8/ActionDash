@@ -50,14 +50,14 @@ func _physics_process(delta: float) -> void:
 	if targets.is_empty():
 		return
 	for enemy in targets:
-		enemy.apply_damage(base_damage * direct_multiplier)
+		enemy.apply_damage(base_damage * direct_multiplier, &"melee")
 	proximity_hit.emit(player.global_position, targets.size(), direct_multiplier)
 
 	if maximum_state and _wave_timer <= 0.0:
 		_wave_timer = kinetic_wave_cooldown
 		var wave_targets := _get_enemies_in_radius(player.global_position, kinetic_wave_radius)
 		for enemy in wave_targets:
-			enemy.apply_damage(kinetic_wave_damage)
+			enemy.apply_damage(kinetic_wave_damage, &"wave")
 		kinetic_wave_triggered.emit(player.global_position, wave_targets.size())
 
 func get_damage_multiplier(horizontal_speed: float, configured_max_speed: float) -> float:
@@ -87,7 +87,7 @@ func try_landing_attack(
 	var speed_ratio := clampf(horizontal_speed / maxf(configured_max_speed, 0.001), 0.0, 1.0)
 	var multiplier := lerpf(1.0, landing_speed_bonus_limit, speed_ratio)
 	for enemy in targets:
-		enemy.apply_damage(landing_damage * multiplier)
+		enemy.apply_damage(landing_damage * multiplier, &"landing")
 	_landing_timer = landing_cooldown
 	landing_impact.emit(position, targets.size(), multiplier)
 	return true

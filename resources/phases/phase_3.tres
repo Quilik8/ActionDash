@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="ActionDashPhaseConfig" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/phase_config.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/gameplay/boss.tscn" id="2"]
+
+[resource]
+script = ExtResource("1")
+phase_number = 3
+display_name = "FASE 3 — BOSS"
+variant_id = &"macrozone_boss_01"
+total_enemies = 25
+maximum_active_enemies = 13
+time_limit_seconds = 180.0
+contains_boss = true
+boss_scene = ExtResource("2")
+group_count = 4
+minimum_enemies_per_group = 3
+maximum_enemies_per_group = 4
+group_spread_radius = 8.0
+minimum_group_center_distance = 42.0
+flying_enemy_ratio = 0.12
+spawn_interval = 0.5

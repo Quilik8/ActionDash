@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3]
+[gd_scene load_steps=27 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/gameplay/player.tscn" id="1_player"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/enemy.tscn" id="2_enemy"]
@@ -6,6 +6,13 @@
 [ext_resource type="Script" path="res://scripts/camera_follow.gd" id="4_camera"]
 [ext_resource type="Script" path="res://scripts/enemy_spawner.gd" id="5_spawner"]
 [ext_resource type="Script" path="res://scripts/debug_overlay.gd" id="6_debug"]
+[ext_resource type="Script" path="res://scripts/phase_controller.gd" id="7_phase_controller"]
+[ext_resource type="Script" path="res://scripts/environment_deterioration.gd" id="8_deterioration"]
+[ext_resource type="PackedScene" path="res://scenes/ui/run_ui.tscn" id="9_run_ui"]
+[ext_resource type="Resource" path="res://resources/phases/phase_1.tres" id="10_phase_1"]
+[ext_resource type="Resource" path="res://resources/phases/phase_2.tres" id="11_phase_2"]
+[ext_resource type="Resource" path="res://resources/phases/phase_3.tres" id="12_phase_3"]
+[ext_resource type="Resource" path="res://resources/upgrades/run_upgrade_catalog.tres" id="13_catalog"]
 
 [sub_resource type="Environment" id="Environment_playground"]
 background_mode = 1
@@ -252,19 +259,25 @@ fov = 70.0
 script = ExtResource("5_spawner")
 enemy_scene = ExtResource("2_enemy")
 flying_enemy_scene = ExtResource("3_flying_enemy")
-player_path = NodePath("../Player")
-total_enemy_count = 42
-flying_enemy_count = 6
-respawn_interval = 2.0
-group_count = 6
-minimum_enemies_per_group = 5
-maximum_enemies_per_group = 8
-group_spread_radius = 7.0
-minimum_group_center_distance = 38.0
 spawn_area_half_extents = Vector2(125, 95)
 center_safe_radius = 20.0
 flying_spawn_height = 7.0
-flying_group_spread = 9.0
+
+[node name="EnvironmentDeterioration" type="Node" parent="."]
+script = ExtResource("8_deterioration")
+world_environment_path = NodePath("../WorldEnvironment")
+directional_light_path = NodePath("../DirectionalLight3D")
+
+[node name="RunUI" parent="." instance=ExtResource("9_run_ui")]
+
+[node name="PhaseController" type="Node" parent="."]
+script = ExtResource("7_phase_controller")
+phases = [ExtResource("10_phase_1"), ExtResource("11_phase_2"), ExtResource("12_phase_3")]
+upgrade_catalog = ExtResource("13_catalog")
+player_path = NodePath("../Player")
+spawner_path = NodePath("../EnemySpawner")
+run_ui_path = NodePath("../RunUI")
+deterioration_path = NodePath("../EnvironmentDeterioration")
 
 [node name="DebugLayer" type="CanvasLayer" parent="."]
 
@@ -272,7 +285,7 @@ flying_group_spread = 9.0
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 620.0
-offset_bottom = 145.0
+offset_bottom = 175.0
 theme_override_colors/font_color = Color(0.88, 0.94, 1, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.8)
 theme_override_constants/shadow_offset_x = 2
@@ -281,3 +294,4 @@ theme_override_font_sizes/font_size = 16
 text = "ActionDash MVP"
 script = ExtResource("6_debug")
 player_path = NodePath("../../Player")
+phase_controller_path = NodePath("../../PhaseController")
