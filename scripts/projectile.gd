@@ -11,7 +11,7 @@ var _speed: float = 52.0
 var _damage: float = 4.0
 var _hit_radius: float = 0.55
 var _remaining_lifetime: float = 1.8
-var _active: bool = true
+var _hit_enemy_ids: Dictionary = {}
 
 @onready var _presentation: ActionDashEnergyProjectileVisual = $Presentation
 
@@ -30,8 +30,6 @@ func _ready() -> void:
 	_presentation.play_launch()
 
 func _process(delta: float) -> void:
-	if not _active:
-		return
 	var previous_position := global_position
 	var next_position := previous_position + _direction * _speed * delta
 	global_position = next_position
@@ -43,31 +41,25 @@ func _process(delta: float) -> void:
 	for enemy in get_tree().get_nodes_in_group("enemies"):
 		if not is_instance_valid(enemy):
 			continue
+		var enemy_id := enemy.get_instance_id()
+		if _hit_enemy_ids.has(enemy_id):
+			continue
 		if enemy.has_method("get_projectile_hit_zone"):
 			var hit_zone: StringName = enemy.get_projectile_hit_zone(previous_position, next_position, _hit_radius)
 			if hit_zone == &"weak_point":
+				_hit_enemy_ids[enemy_id] = true
 				enemy.hit_weak_point(_damage)
 				enemy_hit.emit(enemy.get_projectile_hit_position(), _damage)
-				_impact(enemy.get_projectile_hit_position())
-				return
+				continue
 			if hit_zone == &"body":
+				_hit_enemy_ids[enemy_id] = true
 				enemy.apply_damage(_damage, &"ranged")
 				enemy_hit.emit(enemy.get_projectile_hit_position(), _damage)
-				_impact(enemy.get_projectile_hit_position())
-				return
 			continue
 		var enemy_center: Vector3 = enemy.get_projectile_hit_position()
 		var closest := Geometry3D.get_closest_point_to_segment(enemy_center, previous_position, next_position)
 		var combined_radius: float = _hit_radius + enemy.get_projectile_hit_radius()
 		if closest.distance_squared_to(enemy_center) <= combined_radius * combined_radius:
+			_hit_enemy_ids[enemy_id] = true
 			enemy.apply_damage(_damage, &"ranged")
 			enemy_hit.emit(closest, _damage)
-			_impact(closest)
-			return
-
-func _impact(impact_position: Vector3) -> void:
-	_active = false
-	global_position = impact_position
-	_presentation.play_impact()
-	await get_tree().create_timer(0.18).timeout
-	queue_free()

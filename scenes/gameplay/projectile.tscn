@@ -57,6 +57,3 @@ mesh = SubResource("TrailMesh")
 
 [node name="LaunchFlash" type="MeshInstance3D" parent="Presentation/VFXRoot"]
 mesh = SubResource("FlashMesh")
-
-[node name="ImpactFlash" type="MeshInstance3D" parent="Presentation/VFXRoot"]
-mesh = SubResource("FlashMesh")

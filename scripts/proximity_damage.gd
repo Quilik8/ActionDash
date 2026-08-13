@@ -14,6 +14,7 @@ signal landing_impact(position: Vector3, targets_hit: int, damage_multiplier: fl
 @export var maximum_damage_multiplier: float = 3.0
 @export_range(0.25, 3.0, 0.05) var scaling_exponent: float = 1.35
 @export var damage_interval: float = 0.35
+@export var airborne_vertical_reach: float = 2.0
 
 @export_category("Maximum kinetic state")
 @export_range(0.5, 1.0, 0.01) var kinetic_max_threshold: float = 0.9
@@ -23,9 +24,7 @@ signal landing_impact(position: Vector3, targets_hit: int, damage_multiplier: fl
 @export var kinetic_wave_cooldown: float = 1.25
 
 @export_category("Landing attack")
-@export var landing_base_melee_multiplier: float = 1.5
-@export var landing_max_melee_multiplier: float = 3.0
-@export_range(0.25, 3.0, 0.05) var landing_radius_exponent: float = 1.2
+@export var landing_melee_multiplier: float = 1.5
 @export var landing_damage: float = 1.4
 @export var landing_minimum_air_time: float = 0.25
 @export var landing_minimum_fall_speed: float = 2.0
@@ -53,7 +52,7 @@ func _physics_process(delta: float) -> void:
 	var maximum_state := is_kinetic_max(speed, configured_max_speed)
 	var direct_multiplier := multiplier * (kinetic_max_impact_multiplier if maximum_state else 1.0)
 	var effective_radius := get_effective_radius(speed, configured_max_speed)
-	var targets := _get_enemies_in_radius(player.global_position, effective_radius)
+	var targets := _get_melee_targets(player.global_position, effective_radius, not player.is_on_floor())
 	if targets.is_empty():
 		return
 	for enemy in targets:
@@ -62,7 +61,7 @@ func _physics_process(delta: float) -> void:
 
 	if maximum_state and _wave_timer <= 0.0:
 		_wave_timer = kinetic_wave_cooldown
-		var wave_targets := _get_enemies_in_radius(player.global_position, kinetic_wave_radius)
+		var wave_targets := _get_melee_targets(player.global_position, kinetic_wave_radius, not player.is_on_floor())
 		for enemy in wave_targets:
 			enemy.apply_damage(kinetic_wave_damage, &"wave")
 		kinetic_wave_triggered.emit(player.global_position, wave_targets.size())
@@ -84,9 +83,7 @@ func get_effective_radius(horizontal_speed: float, configured_max_speed: float) 
 
 func get_landing_radius(horizontal_speed: float, configured_max_speed: float) -> float:
 	var effective_melee_radius := get_effective_radius(horizontal_speed, configured_max_speed)
-	var curved_progress := pow(get_speed_progress(horizontal_speed, configured_max_speed), landing_radius_exponent)
-	var landing_multiplier := lerpf(landing_base_melee_multiplier, landing_max_melee_multiplier, curved_progress)
-	return effective_melee_radius * landing_multiplier
+	return effective_melee_radius * landing_melee_multiplier
 
 func is_kinetic_max(horizontal_speed: float, configured_max_speed: float) -> bool:
 	return horizontal_speed >= configured_max_speed * kinetic_max_threshold
@@ -103,7 +100,7 @@ func try_landing_attack(
 	if air_time < landing_minimum_air_time or fall_speed < landing_minimum_fall_speed:
 		return false
 	var effective_radius := get_landing_radius(horizontal_speed, configured_max_speed)
-	var targets := _get_enemies_in_radius(world_position, effective_radius)
+	var targets := _get_melee_targets(world_position, effective_radius, false)
 	if targets.is_empty():
 		return false
 
@@ -115,10 +112,19 @@ func try_landing_attack(
 	landing_impact.emit(world_position, targets.size(), multiplier, effective_radius)
 	return true
 
-func _get_enemies_in_radius(world_position: Vector3, radius: float) -> Array[Node]:
+func _get_melee_targets(world_position: Vector3, radius: float, allow_flying: bool) -> Array[Node]:
 	var result: Array[Node] = []
 	var radius_squared := radius * radius
 	for enemy in get_tree().get_nodes_in_group("enemies"):
-		if is_instance_valid(enemy) and world_position.distance_squared_to(enemy.global_position) <= radius_squared:
+		if not is_instance_valid(enemy):
+			continue
+		var is_flying := enemy.is_in_group("flying_enemies")
+		if is_flying and not allow_flying:
+			continue
+		var offset: Vector3 = enemy.get_projectile_hit_position() - world_position
+		if is_flying:
+			if absf(offset.y) <= airborne_vertical_reach and Vector2(offset.x, offset.z).length_squared() <= radius_squared:
+				result.append(enemy)
+		elif offset.length_squared() <= radius_squared:
 			result.append(enemy)
 	return result

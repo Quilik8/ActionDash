@@ -166,9 +166,8 @@ damage_radius = 6.3
 maximum_radius_multiplier = 1.5
 radius_scaling_exponent = 1.15
 kinetic_max_impact_multiplier = 2.0
-landing_base_melee_multiplier = 1.5
-landing_max_melee_multiplier = 3.0
-landing_radius_exponent = 1.2
+airborne_vertical_reach = 2.0
+landing_melee_multiplier = 1.5
 
 [node name="RangedPower" type="Node" parent="Gameplay"]
 script = ExtResource("5_power")
@@ -178,7 +177,7 @@ damage = 4.0
 projectile_count = 1
 impact_behavior = &"standard"
 projectile_speed = 52.0
-projectile_size = 0.48
+projectile_size = 1.6
 projectile_lifetime = 1.8
 
 [node name="Debug" type="Node3D" parent="."]

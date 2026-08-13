@@ -131,7 +131,7 @@ func _apply_gravity(delta: float) -> void:
 
 func _move_with_inertia(delta: float) -> void:
 	var input_vector := Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
-	var desired_direction := Vector3(input_vector.x, 0.0, input_vector.y)
+	var desired_direction := _get_camera_relative_direction(input_vector)
 	if desired_direction.length_squared() > 1.0:
 		desired_direction = desired_direction.normalized()
 
@@ -172,6 +172,19 @@ func _move_with_inertia(delta: float) -> void:
 		horizontal_velocity = horizontal_velocity.normalized() * max_speed
 	velocity.x = horizontal_velocity.x
 	velocity.z = horizontal_velocity.z
+
+func _get_camera_relative_direction(input_vector: Vector2) -> Vector3:
+	if not is_instance_valid(_camera):
+		_camera = get_viewport().get_camera_3d()
+	if _camera == null:
+		return Vector3(input_vector.x, 0.0, input_vector.y)
+	var camera_forward := -_camera.global_basis.z
+	camera_forward.y = 0.0
+	camera_forward = camera_forward.normalized()
+	var camera_right := _camera.global_basis.x
+	camera_right.y = 0.0
+	camera_right = camera_right.normalized()
+	return camera_right * input_vector.x + camera_forward * -input_vector.y
 
 func _handle_super_toggle() -> void:
 	if not Input.is_action_just_pressed("super_movement"):

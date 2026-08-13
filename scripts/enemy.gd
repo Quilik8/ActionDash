@@ -5,7 +5,7 @@ signal damaged(amount: float, remaining_health: float)
 signal died
 
 @export_category("Enemy")
-@export var max_health: float = 3.0
+@export var max_health: float = 1.0
 
 @export_category("Territorial idle")
 @export var wander_speed: float = 0.75

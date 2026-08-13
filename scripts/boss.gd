@@ -11,8 +11,9 @@ signal vulnerability_changed(active: bool)
 @export var resistant_damage_multiplier: float = 0.35
 @export var vulnerable_melee_multiplier: float = 3.0
 @export var vulnerability_duration: float = 6.0
-@export var weak_point_radius: float = 0.72
-@export var body_hit_radius: float = 2.1
+@export var weak_point_radius: float = 1.44
+@export var body_hit_radius: float = 4.2
+@export var body_hit_height: float = 4.2
 
 var current_health: float
 var _vulnerability_remaining: float = 0.0
@@ -71,7 +72,7 @@ func apply_damage(amount: float, damage_type: StringName = &"generic") -> void:
 		died.emit()
 
 func get_projectile_hit_position() -> Vector3:
-	return global_position + Vector3.UP * 2.0
+	return global_position + Vector3.UP * body_hit_height
 
 func get_projectile_hit_radius() -> float:
 	return body_hit_radius
