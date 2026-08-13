@@ -1,20 +1,62 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/projectile.gd" id="1_projectile"]
+[ext_resource type="Script" path="res://scripts/energy_projectile_visual.gd" id="2_visual"]
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_projectile"]
-albedo_color = Color(1, 0.75, 0.18, 1)
+[sub_resource type="StandardMaterial3D" id="OrbMaterial"]
+albedo_color = Color(0.45, 0.9, 1, 1)
 emission_enabled = true
-emission = Color(0.55, 0.25, 0.02, 1)
-roughness = 0.35
+emission = Color(0.18, 0.75, 1, 1)
+roughness = 0.2
 
-[sub_resource type="SphereMesh" id="SphereMesh_projectile"]
-material = SubResource("StandardMaterial3D_projectile")
-radius = 0.14
-height = 0.28
+[sub_resource type="SphereMesh" id="OrbMesh"]
+material = SubResource("OrbMaterial")
+radius = 1.0
+height = 2.0
 
-[node name="Projectile" type="Node3D"]
+[sub_resource type="StandardMaterial3D" id="TrailMaterial"]
+transparency = 1
+albedo_color = Color(0.15, 0.72, 1, 0.3)
+emission_enabled = true
+emission = Color(0.08, 0.42, 0.9, 1)
+shading_mode = 0
+
+[sub_resource type="BoxMesh" id="TrailMesh"]
+material = SubResource("TrailMaterial")
+size = Vector3(0.75, 0.75, 1)
+
+[sub_resource type="StandardMaterial3D" id="FlashMaterial"]
+transparency = 1
+albedo_color = Color(0.85, 0.98, 1, 0.7)
+emission_enabled = true
+emission = Color(0.45, 0.9, 1, 1)
+shading_mode = 0
+
+[sub_resource type="SphereMesh" id="FlashMesh"]
+material = SubResource("FlashMaterial")
+radius = 1.0
+height = 2.0
+
+[node name="EnergyProjectile" type="Node3D"]
 script = ExtResource("1_projectile")
 
-[node name="Visual" type="MeshInstance3D" parent="."]
-mesh = SubResource("SphereMesh_projectile")
+[node name="Detection" type="Node" parent="."]
+
+[node name="Presentation" type="Node3D" parent="."]
+script = ExtResource("2_visual")
+
+[node name="VisualRoot" type="Node3D" parent="Presentation"]
+
+[node name="Orb" type="MeshInstance3D" parent="Presentation/VisualRoot"]
+mesh = SubResource("OrbMesh")
+
+[node name="Trail" type="MeshInstance3D" parent="Presentation/VisualRoot"]
+mesh = SubResource("TrailMesh")
+
+[node name="VFXRoot" type="Node3D" parent="Presentation"]
+
+[node name="LaunchFlash" type="MeshInstance3D" parent="Presentation/VFXRoot"]
+mesh = SubResource("FlashMesh")
+
+[node name="ImpactFlash" type="MeshInstance3D" parent="Presentation/VFXRoot"]
+mesh = SubResource("FlashMesh")

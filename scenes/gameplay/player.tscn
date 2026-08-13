@@ -1,35 +1,96 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://scripts/proximity_damage.gd" id="2_proximity"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/projectile.tscn" id="3_projectile"]
+[ext_resource type="Script" path="res://scripts/player_visuals.gd" id="4_visuals"]
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_player"]
+[sub_resource type="StandardMaterial3D" id="PlayerMaterial"]
 albedo_color = Color(0.18, 0.55, 0.9, 1)
 roughness = 0.7
 
-[sub_resource type="CapsuleMesh" id="CapsuleMesh_player"]
-material = SubResource("StandardMaterial3D_player")
+[sub_resource type="CapsuleMesh" id="PlayerMesh"]
+material = SubResource("PlayerMaterial")
 radius = 0.45
 height = 1.8
 
-[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
+[sub_resource type="CapsuleShape3D" id="PlayerShape"]
 radius = 0.45
 height = 1.8
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_marker"]
+[sub_resource type="StandardMaterial3D" id="MarkerMaterial"]
 albedo_color = Color(0.95, 0.85, 0.25, 1)
 emission_enabled = true
 emission = Color(0.25, 0.18, 0.02, 1)
 
-[sub_resource type="SphereMesh" id="SphereMesh_marker"]
-material = SubResource("StandardMaterial3D_marker")
+[sub_resource type="SphereMesh" id="MarkerMesh"]
+material = SubResource("MarkerMaterial")
 radius = 0.12
 height = 0.24
 
+[sub_resource type="StandardMaterial3D" id="KineticMaterial"]
+transparency = 1
+albedo_color = Color(0.1, 0.85, 1, 0.18)
+emission_enabled = true
+emission = Color(0.05, 0.55, 0.9, 1)
+shading_mode = 0
+
+[sub_resource type="SphereMesh" id="KineticMesh"]
+material = SubResource("KineticMaterial")
+radius = 0.72
+height = 1.44
+
+[sub_resource type="StandardMaterial3D" id="TrailMaterial"]
+transparency = 1
+albedo_color = Color(0.1, 0.7, 1, 0.25)
+emission_enabled = true
+emission = Color(0.02, 0.25, 0.65, 1)
+shading_mode = 0
+
+[sub_resource type="BoxMesh" id="TrailMesh"]
+material = SubResource("TrailMaterial")
+size = Vector3(0.55, 0.18, 2.8)
+
+[sub_resource type="StandardMaterial3D" id="AttackMaterial"]
+transparency = 1
+albedo_color = Color(0.35, 0.95, 1, 0.6)
+emission_enabled = true
+emission = Color(0.12, 0.75, 1, 1)
+shading_mode = 0
+
+[sub_resource type="TorusMesh" id="AttackRingMesh"]
+material = SubResource("AttackMaterial")
+inner_radius = 0.72
+outer_radius = 0.9
+
+[sub_resource type="StandardMaterial3D" id="LandingMaterial"]
+transparency = 1
+albedo_color = Color(0.95, 0.68, 0.12, 0.55)
+emission_enabled = true
+emission = Color(0.8, 0.3, 0.03, 1)
+shading_mode = 0
+
+[sub_resource type="CylinderMesh" id="LandingMesh"]
+material = SubResource("LandingMaterial")
+top_radius = 1.0
+bottom_radius = 1.0
+height = 0.08
+
+[sub_resource type="StandardMaterial3D" id="EnergyMaterial"]
+transparency = 1
+albedo_color = Color(0.9, 0.98, 1, 0.75)
+emission_enabled = true
+emission = Color(0.25, 0.8, 1, 1)
+shading_mode = 0
+
+[sub_resource type="SphereMesh" id="EnergyFlashMesh"]
+material = SubResource("EnergyMaterial")
+radius = 0.6
+height = 1.2
+
 [node name="Player" type="CharacterBody3D" groups=["player"]]
 script = ExtResource("1_player")
-projectile_scene = ExtResource("3_projectile")
+energy_projectile_scene = ExtResource("3_projectile")
 base_speed = 11.0
 max_speed = 36.0
 acceleration = 34.0
@@ -42,25 +103,71 @@ air_acceleration = 11.0
 air_deceleration = 1.8
 fall_limit_y = -12.0
 respawn_position = Vector3(0, 0, 0)
-projectile_speed = 45.0
-magazine_size = 20
-reload_time = 2.0
-fire_cooldown = 0.22
+energy_damage = 4.0
+energy_speed = 52.0
+energy_size = 0.48
+energy_reload_duration = 4.0
+energy_lifetime = 1.8
 aim_distance = 60.0
 show_aim_marker = true
 aim_collision_mask = 3
 
-[node name="Body" type="MeshInstance3D" parent="."]
+[node name="VisualRoot" type="Node3D" parent="."]
+script = ExtResource("4_visuals")
+
+[node name="Model" type="Node3D" parent="VisualRoot"]
+
+[node name="Body" type="MeshInstance3D" parent="VisualRoot/Model"]
 position = Vector3(0, 0.9, 0)
-mesh = SubResource("CapsuleMesh_player")
+mesh = SubResource("PlayerMesh")
+
+[node name="VFX" type="Node3D" parent="VisualRoot"]
+
+[node name="KineticAura" type="MeshInstance3D" parent="VisualRoot/VFX"]
+position = Vector3(0, 0.9, 0)
+mesh = SubResource("KineticMesh")
+
+[node name="SpeedTrail" type="MeshInstance3D" parent="VisualRoot/VFX"]
+position = Vector3(0, 0.9, 1.75)
+mesh = SubResource("TrailMesh")
+
+[node name="ProximityFlash" type="MeshInstance3D" parent="VisualRoot/VFX"]
+position = Vector3(0, 0.55, 0)
+mesh = SubResource("AttackRingMesh")
+
+[node name="KineticWave" type="MeshInstance3D" parent="VisualRoot/VFX"]
+position = Vector3(0, 0.35, 0)
+mesh = SubResource("AttackRingMesh")
+
+[node name="LandingImpact" type="MeshInstance3D" parent="VisualRoot/VFX"]
+position = Vector3(0, 0.08, 0)
+mesh = SubResource("LandingMesh")
+
+[node name="MuzzleFlash" type="MeshInstance3D" parent="VisualRoot/VFX"]
+mesh = SubResource("EnergyFlashMesh")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 position = Vector3(0, 0.9, 0)
-shape = SubResource("CapsuleShape3D_player")
+shape = SubResource("PlayerShape")
 
-[node name="AimMarker" type="MeshInstance3D" parent="."]
-top_level = true
-mesh = SubResource("SphereMesh_marker")
+[node name="AttackOrigin" type="Marker3D" parent="."]
+position = Vector3(0, 0.95, 0)
 
-[node name="ProximityDamage" type="Node" parent="."]
+[node name="FutureSockets" type="Node3D" parent="."]
+
+[node name="TrailOrigin" type="Marker3D" parent="FutureSockets"]
+position = Vector3(0, 0.9, 0.6)
+
+[node name="AnimationAnchor" type="Marker3D" parent="FutureSockets"]
+position = Vector3(0, 0.9, 0)
+
+[node name="Gameplay" type="Node" parent="."]
+
+[node name="ProximityDamage" type="Node" parent="Gameplay"]
 script = ExtResource("2_proximity")
+
+[node name="Debug" type="Node3D" parent="."]
+
+[node name="AimMarker" type="MeshInstance3D" parent="Debug"]
+top_level = true
+mesh = SubResource("MarkerMesh")

@@ -1,6 +1,9 @@
 class_name ActionDashFlyingEnemy
 extends Node3D
 
+signal damaged(amount: float, remaining_health: float)
+signal died
+
 @export_category("Flying enemy")
 @export var max_health: float = 3.0
 @export var move_speed: float = 2.2
@@ -28,7 +31,9 @@ func _process(delta: float) -> void:
 
 func apply_damage(amount: float) -> void:
 	current_health -= amount
+	damaged.emit(amount, maxf(current_health, 0.0))
 	if current_health <= 0.0:
+		died.emit()
 		queue_free()
 
 func get_projectile_hit_position() -> Vector3:

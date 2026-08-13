@@ -1,6 +1,12 @@
 class_name ActionDashPlayer
 extends CharacterBody3D
 
+signal energy_attack_fired(origin: Vector3, direction: Vector3)
+signal proximity_attack(position: Vector3, targets_hit: int, damage_multiplier: float)
+signal kinetic_wave(position: Vector3, targets_hit: int)
+signal kinetic_state_changed(active: bool)
+signal landing_attack(position: Vector3, targets_hit: int, damage_multiplier: float)
+
 @export_category("Movement")
 @export var base_speed: float = 11.0
 @export var max_speed: float = 36.0
@@ -17,14 +23,13 @@ extends CharacterBody3D
 @export var fall_limit_y: float = -12.0
 @export var respawn_position: Vector3 = Vector3.ZERO
 
-@export_category("Pistol")
-@export var projectile_scene: PackedScene
-@export var projectile_speed: float = 45.0
-@export var projectile_damage: float = 1.0
-@export var magazine_size: int = 20
-@export var reload_time: float = 2.0
-@export var fire_cooldown: float = 0.22
-@export var projectile_spawn_height: float = 0.9
+@export_category("Energy attack")
+@export var energy_projectile_scene: PackedScene
+@export var energy_damage: float = 4.0
+@export var energy_speed: float = 52.0
+@export var energy_size: float = 0.48
+@export var energy_reload_duration: float = 4.0
+@export var energy_lifetime: float = 1.8
 @export var aim_height: float = 0.65
 @export var aim_distance: float = 60.0
 
@@ -32,16 +37,23 @@ extends CharacterBody3D
 @export var show_aim_marker: bool = true
 @export_flags_3d_physics var aim_collision_mask: int = 3
 
-var _fire_timer: float = 0.0
-var _reload_timer: float = 0.0
-var current_ammo: int
+var _energy_reload_remaining: float = 0.0
 var _camera: Camera3D
-@onready var _aim_marker: MeshInstance3D = $AimMarker
+var _kinetic_max_active: bool = false
+var _air_time: float = 0.0
+var _landing_horizontal_speed: float = 0.0
+var _landing_fall_speed: float = 0.0
+
+@onready var _attack_origin: Marker3D = $AttackOrigin
+@onready var _aim_marker: MeshInstance3D = $Debug/AimMarker
+@onready var _proximity_damage: ActionDashProximityDamage = $Gameplay/ProximityDamage
 
 func _ready() -> void:
 	add_to_group("player")
-	current_ammo = magazine_size
 	_aim_marker.visible = show_aim_marker
+	_proximity_damage.proximity_hit.connect(_on_proximity_hit)
+	_proximity_damage.kinetic_wave_triggered.connect(_on_kinetic_wave)
+	_proximity_damage.landing_impact.connect(_on_landing_impact)
 
 func _process(_delta: float) -> void:
 	if not show_aim_marker:
@@ -53,46 +65,43 @@ func _process(_delta: float) -> void:
 		_aim_marker.global_position = aim_position
 
 func _physics_process(delta: float) -> void:
+	var was_on_floor := is_on_floor()
+	_track_airborne_state(delta, was_on_floor)
 	_apply_gravity(delta)
 	_move_with_inertia(delta)
 	_handle_jump()
 	move_and_slide()
+	_handle_landing(was_on_floor)
+	_update_kinetic_state()
 	_check_fall_recovery()
 
-	_fire_timer = maxf(_fire_timer - delta, 0.0)
-	_update_reload(delta)
-	if Input.is_action_just_pressed("shoot") and _fire_timer <= 0.0 and not is_reloading():
-		if _fire_projectile():
-			_fire_timer = fire_cooldown
+	_energy_reload_remaining = maxf(_energy_reload_remaining - delta, 0.0)
+	if Input.is_action_just_pressed("shoot") and is_energy_ready():
+		_fire_energy_projectile()
 
 func _check_fall_recovery() -> void:
 	if global_position.y < fall_limit_y:
 		global_position = respawn_position
 		velocity = Vector3.ZERO
+		_reset_airborne_state()
 
-func _update_reload(delta: float) -> void:
-	if _reload_timer <= 0.0:
-		return
-	_reload_timer = maxf(_reload_timer - delta, 0.0)
-	if _reload_timer <= 0.0:
-		current_ammo = magazine_size
+func is_energy_ready() -> bool:
+	return _energy_reload_remaining <= 0.0
 
-func _start_reload() -> void:
-	if _reload_timer > 0.0:
-		return
-	_reload_timer = reload_time
+func get_energy_reload_remaining() -> float:
+	return _energy_reload_remaining
 
-func is_reloading() -> bool:
-	return _reload_timer > 0.0
-
-func get_current_ammo() -> int:
-	return current_ammo
-
-func get_magazine_size() -> int:
-	return magazine_size
+func get_horizontal_speed() -> float:
+	return Vector3(velocity.x, 0.0, velocity.z).length()
 
 func get_max_speed() -> float:
 	return max_speed
+
+func get_kinetic_damage_multiplier() -> float:
+	return _proximity_damage.get_damage_multiplier(get_horizontal_speed(), max_speed)
+
+func is_kinetic_max_active() -> bool:
+	return _kinetic_max_active
 
 func _apply_gravity(delta: float) -> void:
 	if not is_on_floor():
@@ -109,19 +118,15 @@ func _move_with_inertia(delta: float) -> void:
 	var horizontal_velocity := Vector3(velocity.x, 0.0, velocity.z)
 	var current_speed: float = horizontal_velocity.length()
 	if desired_direction.length_squared() > 0.0:
-		# Launch quickly to base_speed, then keep accelerating toward max_speed.
 		var target_speed: float = base_speed if current_speed < base_speed else max_speed
 		var desired_velocity: Vector3 = desired_direction * target_speed
 		var response: float = acceleration if is_on_floor() else air_acceleration * air_control
-
-		# Turning against existing momentum is possible, but deliberately takes time.
 		if current_speed > 0.01:
 			var alignment: float = horizontal_velocity.normalized().dot(desired_direction)
 			var turn_resistance: float = 1.0 - (1.0 - alignment) * 0.3 * momentum_preservation
 			response *= clampf(turn_resistance, 0.35, 1.0)
 		horizontal_velocity = horizontal_velocity.move_toward(desired_velocity, response * delta)
 	else:
-		# Releasing movement coasts instead of snapping to a stop.
 		var coast_factor: float = lerpf(1.0, 0.22, momentum_preservation)
 		var response: float = deceleration * coast_factor if is_on_floor() else air_deceleration * coast_factor
 		horizontal_velocity = horizontal_velocity.move_toward(Vector3.ZERO, response * delta)
@@ -135,25 +140,71 @@ func _handle_jump() -> void:
 	if Input.is_action_just_pressed("jump") and is_on_floor():
 		velocity.y = jump_force
 
-func _fire_projectile() -> bool:
-	if projectile_scene == null or current_ammo <= 0 or is_reloading():
+func _track_airborne_state(delta: float, was_on_floor: bool) -> void:
+	if was_on_floor:
+		return
+	_air_time += delta
+	_landing_horizontal_speed = maxf(_landing_horizontal_speed, get_horizontal_speed())
+	_landing_fall_speed = maxf(_landing_fall_speed, -velocity.y)
+
+func _handle_landing(was_on_floor: bool) -> void:
+	if not was_on_floor and is_on_floor():
+		_proximity_damage.try_landing_attack(
+			global_position,
+			_landing_horizontal_speed,
+			_landing_fall_speed,
+			_air_time,
+			max_speed
+		)
+		_reset_airborne_state()
+	elif is_on_floor():
+		_reset_airborne_state()
+
+func _reset_airborne_state() -> void:
+	_air_time = 0.0
+	_landing_horizontal_speed = 0.0
+	_landing_fall_speed = 0.0
+
+func _update_kinetic_state() -> void:
+	var active := _proximity_damage.is_kinetic_max(get_horizontal_speed(), max_speed)
+	if active == _kinetic_max_active:
+		return
+	_kinetic_max_active = active
+	kinetic_state_changed.emit(active)
+
+func _fire_energy_projectile() -> bool:
+	if energy_projectile_scene == null or not is_energy_ready():
 		return false
-	var aim_position: Vector3 = _get_mouse_world_position()
+	var aim_position := _get_mouse_world_position()
 	if not aim_position.is_finite():
 		return false
-	var direction: Vector3 = aim_position - global_position - Vector3.UP * projectile_spawn_height
+	return _spawn_energy_projectile_toward(aim_position)
+
+func _spawn_energy_projectile_toward(aim_position: Vector3) -> bool:
+	if energy_projectile_scene == null or not is_energy_ready():
+		return false
+	var origin := _attack_origin.global_position
+	var direction := aim_position - origin
 	if direction.length_squared() < 0.0001:
 		return false
 	direction = direction.normalized()
 
-	var projectile := projectile_scene.instantiate()
+	var projectile := energy_projectile_scene.instantiate() as ActionDashProjectile
 	get_tree().current_scene.add_child(projectile)
-	projectile.global_position = global_position + Vector3.UP * projectile_spawn_height
-	projectile.setup(direction, projectile_speed, projectile_damage)
-	current_ammo -= 1
-	if current_ammo <= 0:
-		_start_reload()
+	projectile.global_position = origin
+	projectile.setup(direction, energy_speed, energy_damage, energy_size, energy_lifetime)
+	_energy_reload_remaining = energy_reload_duration
+	energy_attack_fired.emit(origin, direction)
 	return true
+
+func _on_proximity_hit(position: Vector3, targets_hit: int, multiplier: float) -> void:
+	proximity_attack.emit(position, targets_hit, multiplier)
+
+func _on_kinetic_wave(position: Vector3, targets_hit: int) -> void:
+	kinetic_wave.emit(position, targets_hit)
+
+func _on_landing_impact(position: Vector3, targets_hit: int, multiplier: float) -> void:
+	landing_attack.emit(position, targets_hit, multiplier)
 
 func _get_mouse_world_position() -> Vector3:
 	if not is_instance_valid(_camera):
@@ -173,13 +224,11 @@ func _get_mouse_world_position() -> Vector3:
 	if not hit.is_empty():
 		return hit["position"] as Vector3
 
-	# Fallback: project onto the player's horizontal aim plane when possible.
-	var target_position: Vector3 = Vector3.INF
+	var target_position := Vector3.INF
 	if absf(ray_direction.y) >= 0.001:
 		var distance := (global_position.y + aim_height - ray_origin.y) / ray_direction.y
 		if distance > 0.0:
 			target_position = ray_origin + ray_direction * distance
-
 	if not target_position.is_finite():
 		target_position = ray_end
 	return target_position

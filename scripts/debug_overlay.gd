@@ -19,11 +19,23 @@ func _process(delta: float) -> void:
 
 func _update_text() -> void:
 	var current_speed := 0.0
-	var weapon_text := ""
+	var maximum_speed := 0.0
+	var kinetic_active := false
+	var kinetic_multiplier := 1.0
+	var energy_status := "READY"
 	if is_instance_valid(_player):
-		current_speed = Vector3(_player.velocity.x, 0.0, _player.velocity.z).length()
-		weapon_text = "   Pistola: %d / %d" % [_player.get_current_ammo(), _player.get_magazine_size()]
-		if _player.is_reloading():
-			weapon_text += "   RELOADING"
-	var maximum_speed := _player.get_max_speed() if is_instance_valid(_player) else 0.0
-	text = "ActionDash MVP\nWASF: W avanzar | A izquierda | S retroceder | F derecha\nSpace: saltar | Clic izquierdo: disparar\nFPS: %d   Velocidad: %.1f / %.1f   Enemigos: %d%s" % [Engine.get_frames_per_second(), current_speed, maximum_speed, get_tree().get_nodes_in_group("enemies").size(), weapon_text]
+		current_speed = _player.get_horizontal_speed()
+		maximum_speed = _player.get_max_speed()
+		kinetic_active = _player.is_kinetic_max_active()
+		kinetic_multiplier = _player.get_kinetic_damage_multiplier()
+		if not _player.is_energy_ready():
+			energy_status = "RELOADING %.1fs" % _player.get_energy_reload_remaining()
+	text = "ActionDash MVP\nWASF: movimiento | Space: salto | Clic: esfera de energía\nFPS: %d   Velocidad: %.1f / %.1f   Enemigos: %d\nCinético máximo: %s   Multiplicador: x%.2f   Energía: %s" % [
+		Engine.get_frames_per_second(),
+		current_speed,
+		maximum_speed,
+		get_tree().get_nodes_in_group("enemies").size(),
+		"ACTIVO" if kinetic_active else "INACTIVO",
+		kinetic_multiplier,
+		energy_status
+	]

@@ -19,7 +19,9 @@ radius = 0.85
 [node name="FlyingEnemy" type="Node3D"]
 script = ExtResource("1_flying_enemy")
 
-[node name="Body" type="MeshInstance3D" parent="."]
+[node name="VisualRoot" type="Node3D" parent="."]
+
+[node name="Body" type="MeshInstance3D" parent="VisualRoot"]
 mesh = SubResource("SphereMesh_flying_enemy")
 
 [node name="AimHitbox" type="Area3D" parent="."]
@@ -30,3 +32,7 @@ monitorable = false
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="AimHitbox"]
 shape = SubResource("SphereShape3D_aim")
+
+[node name="FutureSockets" type="Node3D" parent="."]
+
+[node name="HitVFXOrigin" type="Marker3D" parent="FutureSockets"]
