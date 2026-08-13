@@ -39,11 +39,11 @@ func _on_energy_attack_fired(origin: Vector3, _direction: Vector3) -> void:
 	_muzzle_flash.global_position = origin
 	_show_effect(_muzzle_flash, 0.25)
 
-func _on_proximity_attack(_position: Vector3, _targets_hit: int, multiplier: float) -> void:
+func _on_proximity_attack(_position: Vector3, _targets_hit: int, _damage_multiplier: float, effective_radius: float) -> void:
 	if not enable_temporary_vfx:
 		return
 	_proximity_timer = 0.16
-	_show_effect(_proximity_flash, 0.55 + multiplier * 0.08)
+	_show_radial_effect(_proximity_flash, effective_radius / 0.9)
 
 func _on_kinetic_wave(_position: Vector3, _targets_hit: int) -> void:
 	if not enable_temporary_vfx:
@@ -56,15 +56,19 @@ func _on_kinetic_state_changed(active: bool) -> void:
 	_speed_trail.visible = enable_temporary_vfx and active
 	_body.scale = Vector3.ONE * (1.04 if active and enable_temporary_vfx else 1.0)
 
-func _on_landing_attack(_position: Vector3, _targets_hit: int, multiplier: float) -> void:
+func _on_landing_attack(_position: Vector3, _targets_hit: int, _damage_multiplier: float, effective_radius: float) -> void:
 	if not enable_temporary_vfx:
 		return
 	_landing_timer = 0.28
-	_show_effect(_landing_flash, 0.45 * multiplier)
+	_show_radial_effect(_landing_flash, effective_radius)
 
 func _show_effect(effect: MeshInstance3D, initial_scale: float) -> void:
 	effect.visible = true
 	effect.scale = Vector3.ONE * initial_scale
+
+func _show_radial_effect(effect: MeshInstance3D, radius_scale: float) -> void:
+	effect.visible = true
+	effect.scale = Vector3(radius_scale, 1.0, radius_scale)
 
 func _update_effect(effect: MeshInstance3D, timer_name: StringName, delta: float, growth: float) -> void:
 	var remaining: float = get(timer_name)
@@ -72,7 +76,7 @@ func _update_effect(effect: MeshInstance3D, timer_name: StringName, delta: float
 		return
 	remaining = maxf(remaining - delta, 0.0)
 	set(timer_name, remaining)
-	effect.scale += Vector3.ONE * delta * growth
+	effect.scale += Vector3(1.0, 0.0, 1.0) * delta * growth
 	if remaining <= 0.0:
 		effect.visible = false
 

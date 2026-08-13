@@ -1,12 +1,14 @@
 class_name ActionDashProximityDamage
 extends Node
 
-signal proximity_hit(position: Vector3, targets_hit: int, damage_multiplier: float)
+signal proximity_hit(position: Vector3, targets_hit: int, damage_multiplier: float, effective_radius: float)
 signal kinetic_wave_triggered(position: Vector3, targets_hit: int)
-signal landing_impact(position: Vector3, targets_hit: int, damage_multiplier: float)
+signal landing_impact(position: Vector3, targets_hit: int, damage_multiplier: float, effective_radius: float)
 
 @export_category("Kinetic proximity damage")
-@export var damage_radius: float = 2.1
+@export var damage_radius: float = 6.3
+@export var maximum_radius_multiplier: float = 1.5
+@export_range(0.25, 3.0, 0.05) var radius_scaling_exponent: float = 1.15
 @export var base_damage: float = 1.0
 @export var scaling_start_speed: float = 8.0
 @export var maximum_damage_multiplier: float = 3.0
@@ -21,7 +23,9 @@ signal landing_impact(position: Vector3, targets_hit: int, damage_multiplier: fl
 @export var kinetic_wave_cooldown: float = 1.25
 
 @export_category("Landing attack")
-@export var landing_radius: float = 6.5
+@export var landing_base_melee_multiplier: float = 1.5
+@export var landing_max_melee_multiplier: float = 3.0
+@export_range(0.25, 3.0, 0.05) var landing_radius_exponent: float = 1.2
 @export var landing_damage: float = 1.4
 @export var landing_minimum_air_time: float = 0.25
 @export var landing_minimum_fall_speed: float = 2.0
@@ -43,15 +47,18 @@ func _physics_process(delta: float) -> void:
 	var player := get_parent().get_parent() as ActionDashPlayer
 	if player == null:
 		return
-	var multiplier := get_damage_multiplier(player.get_horizontal_speed(), player.max_speed)
-	var maximum_state := is_kinetic_max(player.get_horizontal_speed(), player.max_speed)
+	var speed := player.get_horizontal_speed()
+	var configured_max_speed := player.max_speed
+	var multiplier := get_damage_multiplier(speed, configured_max_speed)
+	var maximum_state := is_kinetic_max(speed, configured_max_speed)
 	var direct_multiplier := multiplier * (kinetic_max_impact_multiplier if maximum_state else 1.0)
-	var targets := _get_enemies_in_radius(player.global_position, damage_radius)
+	var effective_radius := get_effective_radius(speed, configured_max_speed)
+	var targets := _get_enemies_in_radius(player.global_position, effective_radius)
 	if targets.is_empty():
 		return
 	for enemy in targets:
 		enemy.apply_damage(base_damage * direct_multiplier, &"melee")
-	proximity_hit.emit(player.global_position, targets.size(), direct_multiplier)
+	proximity_hit.emit(player.global_position, targets.size(), direct_multiplier, effective_radius)
 
 	if maximum_state and _wave_timer <= 0.0:
 		_wave_timer = kinetic_wave_cooldown
@@ -60,11 +67,26 @@ func _physics_process(delta: float) -> void:
 			enemy.apply_damage(kinetic_wave_damage, &"wave")
 		kinetic_wave_triggered.emit(player.global_position, wave_targets.size())
 
-func get_damage_multiplier(horizontal_speed: float, configured_max_speed: float) -> float:
+func get_speed_progress(horizontal_speed: float, configured_max_speed: float) -> float:
 	var scaling_range := maxf(configured_max_speed - scaling_start_speed, 0.001)
-	var progress := clampf((horizontal_speed - scaling_start_speed) / scaling_range, 0.0, 1.0)
-	var curved_progress := pow(progress, scaling_exponent)
+	return clampf((horizontal_speed - scaling_start_speed) / scaling_range, 0.0, 1.0)
+
+func get_damage_multiplier(horizontal_speed: float, configured_max_speed: float) -> float:
+	var curved_progress := pow(get_speed_progress(horizontal_speed, configured_max_speed), scaling_exponent)
 	return lerpf(1.0, maximum_damage_multiplier, curved_progress)
+
+func get_radius_multiplier(horizontal_speed: float, configured_max_speed: float) -> float:
+	var curved_progress := pow(get_speed_progress(horizontal_speed, configured_max_speed), radius_scaling_exponent)
+	return lerpf(1.0, maximum_radius_multiplier, curved_progress)
+
+func get_effective_radius(horizontal_speed: float, configured_max_speed: float) -> float:
+	return damage_radius * get_radius_multiplier(horizontal_speed, configured_max_speed)
+
+func get_landing_radius(horizontal_speed: float, configured_max_speed: float) -> float:
+	var effective_melee_radius := get_effective_radius(horizontal_speed, configured_max_speed)
+	var curved_progress := pow(get_speed_progress(horizontal_speed, configured_max_speed), landing_radius_exponent)
+	var landing_multiplier := lerpf(landing_base_melee_multiplier, landing_max_melee_multiplier, curved_progress)
+	return effective_melee_radius * landing_multiplier
 
 func is_kinetic_max(horizontal_speed: float, configured_max_speed: float) -> bool:
 	return horizontal_speed >= configured_max_speed * kinetic_max_threshold
@@ -80,7 +102,8 @@ func try_landing_attack(
 		return false
 	if air_time < landing_minimum_air_time or fall_speed < landing_minimum_fall_speed:
 		return false
-	var targets := _get_enemies_in_radius(position, landing_radius)
+	var effective_radius := get_landing_radius(horizontal_speed, configured_max_speed)
+	var targets := _get_enemies_in_radius(position, effective_radius)
 	if targets.is_empty():
 		return false
 
@@ -89,7 +112,7 @@ func try_landing_attack(
 	for enemy in targets:
 		enemy.apply_damage(landing_damage * multiplier, &"landing")
 	_landing_timer = landing_cooldown
-	landing_impact.emit(position, targets.size(), multiplier)
+	landing_impact.emit(position, targets.size(), multiplier, effective_radius)
 	return true
 
 func _get_enemies_in_radius(position: Vector3, radius: float) -> Array[Node]:

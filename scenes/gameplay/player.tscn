@@ -90,11 +90,16 @@ radius = 0.6
 height = 1.2
 
 [node name="Player" type="CharacterBody3D" groups=["player"]]
+collision_mask = 5
 script = ExtResource("1_player")
 base_speed = 11.0
+normal_max_speed = 18.0
+normal_acceleration = 42.0
+extraordinary_base_speed = 18.0
 max_speed = 36.0
 acceleration = 34.0
 deceleration = 7.0
+super_exit_deceleration = 24.0
 momentum_preservation = 0.84
 gravity = 24.0
 jump_force = 10.5
@@ -160,7 +165,13 @@ position = Vector3(0, 0.9, 0)
 
 [node name="ProximityDamage" type="Node" parent="Gameplay"]
 script = ExtResource("2_proximity")
+damage_radius = 6.3
+maximum_radius_multiplier = 1.5
+radius_scaling_exponent = 1.15
 kinetic_max_impact_multiplier = 2.0
+landing_base_melee_multiplier = 1.5
+landing_max_melee_multiplier = 3.0
+landing_radius_exponent = 1.2
 
 [node name="RangedPower" type="Node" parent="Gameplay"]
 script = ExtResource("5_power")

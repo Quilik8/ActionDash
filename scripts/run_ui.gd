@@ -31,7 +31,7 @@ func set_hud(phase_name: String, enemies_remaining: int, time_remaining: float) 
 	_phase_label.text = phase_name
 	_enemy_label.text = "ENEMIGOS: %d" % enemies_remaining
 	var seconds := maxi(ceili(time_remaining), 0)
-	_time_label.text = "TIEMPO: %02d:%02d" % [seconds / 60, seconds % 60]
+	_time_label.text = "TIEMPO: %02d:%02d" % [floori(float(seconds) / 60.0), seconds % 60]
 
 func hide_overlay() -> void:
 	_message_panel.visible = false

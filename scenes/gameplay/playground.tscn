@@ -108,10 +108,11 @@ shape = SubResource("BoxShape3D_wall_x")
 
 [node name="BoundarySouth" type="StaticBody3D" parent="."]
 position = Vector3(0, 4, 120)
-collision_layer = 1
+collision_layer = 4
 collision_mask = 1
 
 [node name="Mesh" type="MeshInstance3D" parent="BoundarySouth"]
+visible = false
 mesh = SubResource("BoxMesh_wall_x")
 
 [node name="Collision" type="CollisionShape3D" parent="BoundarySouth"]
@@ -285,7 +286,7 @@ deterioration_path = NodePath("../EnvironmentDeterioration")
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 620.0
-offset_bottom = 175.0
+offset_bottom = 205.0
 theme_override_colors/font_color = Color(0.88, 0.94, 1, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.8)
 theme_override_constants/shadow_offset_x = 2

@@ -9,7 +9,7 @@ extends Resource
 @export_category("Objective")
 @export var total_enemies: int = 38
 @export var maximum_active_enemies: int = 14
-@export var time_limit_seconds: float = 105.0
+@export var time_limit_seconds: float = 200.0
 @export var contains_boss: bool = false
 @export var boss_scene: PackedScene
 
