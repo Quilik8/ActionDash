@@ -15,6 +15,12 @@ signal died
 @export var decision_interval_min: float = 2.0
 @export var decision_interval_max: float = 4.0
 
+@export_category("Performance LOD")
+@export var detailed_visual_distance: float = 40.0
+@export var simplified_visual_distance: float = 115.0
+@export var lod_check_interval: float = 0.2
+@export var distant_logic_interval: float = 0.1
+
 const BAT_SCENE := preload("res://assets/enemies/quaternius_lowpoly_monsters/Bat.fbx")
 const DEATH_TEXTURE := preload("res://assets/vfx/brackeys/particles/smoke_04_a.png")
 
@@ -31,6 +37,11 @@ var _death_timer: float = 0.0
 var _hit_timer: float = 0.0
 var _current_animation: StringName
 var _death_vfx: Sprite3D
+var _camera: Camera3D
+var _lod_timer: float = 0.0
+var _logic_accumulator: float = 0.0
+var _detailed_lod_active: bool = true
+var _simplified_lod_active: bool = false
 
 @onready var _visual_root: Node3D = $VisualRoot
 @onready var _primitive_body: MeshInstance3D = $VisualRoot/Body
@@ -63,6 +74,9 @@ func activate(home_position: Vector3) -> void:
 	add_to_group("enemies")
 	add_to_group("flying_enemies")
 	set_process(true)
+	_lod_timer = _random.randf_range(0.0, lod_check_interval)
+	_logic_accumulator = 0.0
+	_update_performance_lod()
 	_hover_time = _random.randf_range(0.0, TAU)
 	_schedule_next_decision()
 	_play_animation("Flying", 0.0, 1.0)
@@ -89,20 +103,35 @@ func _process(delta: float) -> void:
 		return
 	_hover_time += delta * hover_frequency
 	_hit_timer = maxf(_hit_timer - delta, 0.0)
+	_lod_timer -= delta
+	if _lod_timer <= 0.0:
+		_lod_timer = lod_check_interval
+		_update_performance_lod()
+	_logic_accumulator += delta
+	if not _detailed_lod_active and _logic_accumulator < distant_logic_interval:
+		return
+	var logic_delta := _logic_accumulator
+	_logic_accumulator = 0.0
 	if _hit_timer <= 0.0:
 		_play_animation("Flying", 0.12, 1.0)
-	_decision_timer -= delta
+	_decision_timer -= logic_delta
 	var desired := _drift_target
 	desired.y = _home_position.y + sin(_hover_time) * hover_amplitude
-	global_position = global_position.move_toward(desired, drift_speed * delta)
+	global_position = global_position.move_toward(desired, drift_speed * logic_delta)
 	var offset := desired - global_position
 	if Vector2(offset.x, offset.z).length_squared() > 0.02:
-		_visual_root.rotation.y = lerp_angle(_visual_root.rotation.y, atan2(-offset.x, -offset.z), 1.0 - exp(-6.0 * delta))
+		_visual_root.rotation.y = lerp_angle(_visual_root.rotation.y, atan2(-offset.x, -offset.z), 1.0 - exp(-6.0 * logic_delta))
 	if global_position.distance_squared_to(desired) < 0.2 or _decision_timer <= 0.0:
 		_choose_drift_target()
 
 func get_home_position() -> Vector3:
 	return _home_position
+
+func is_using_simplified_lod() -> bool:
+	return visible and _simplified_lod_active
+
+func get_simplified_lod_transform() -> Transform3D:
+	return transform * _primitive_body.transform
 
 func apply_damage(amount: float, _damage_type: StringName = &"generic") -> void:
 	if _defeated:
@@ -132,6 +161,19 @@ func _choose_drift_target() -> void:
 
 func _schedule_next_decision() -> void:
 	_decision_timer = _random.randf_range(decision_interval_min, decision_interval_max)
+
+func _update_performance_lod() -> void:
+	if not is_instance_valid(_camera):
+		_camera = get_viewport().get_camera_3d()
+	if _camera == null or not is_instance_valid(_model):
+		return
+	var distance_squared := _camera.global_position.distance_squared_to(global_position)
+	var in_view := _camera.is_position_in_frustum(global_position)
+	_detailed_lod_active = in_view and distance_squared <= detailed_visual_distance * detailed_visual_distance
+	_simplified_lod_active = in_view and distance_squared <= simplified_visual_distance * simplified_visual_distance and not _detailed_lod_active
+	_model.visible = _detailed_lod_active
+	_model.process_mode = Node.PROCESS_MODE_INHERIT if _detailed_lod_active else Node.PROCESS_MODE_DISABLED
+	_primitive_body.visible = false
 
 func _play_animation(keyword: String, blend: float, speed: float) -> void:
 	if _animation_player == null:

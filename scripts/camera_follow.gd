@@ -4,7 +4,11 @@ extends Node3D
 @export var target_path: NodePath
 @export var follow_offset: Vector3 = Vector3(0.0, 9.0, 12.0)
 @export var follow_smoothing: float = 10.0
+@export var look_smoothing: float = 14.0
 @export var look_height: float = 0.7
+@export_category("Camera collision")
+@export_flags_3d_physics var collision_mask: int = 1
+@export var collision_margin: float = 0.65
 @export_category("Speed framing")
 @export var high_speed_distance_multiplier: float = 1.35
 @export var normal_fov: float = 70.0
@@ -22,9 +26,10 @@ var _orbit_yaw: float = 0.0
 var _orbit_pitch: float = 0.0
 var _current_distance_multiplier: float = 1.0
 var _orbiting: bool = false
+var _smoothed_look_position: Vector3
 
 func _ready() -> void:
-	process_physics_priority = 1
+	process_priority = 1
 	_target = get_node_or_null(target_path) as ActionDashPlayer
 	var base_distance := follow_offset.length()
 	if base_distance > 0.001:
@@ -33,6 +38,7 @@ func _ready() -> void:
 	_camera.fov = normal_fov
 	if _target != null:
 		global_position = _target.global_position + follow_offset
+		_smoothed_look_position = _target.global_position + Vector3.UP * look_height
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
@@ -48,7 +54,7 @@ func _input(event: InputEvent) -> void:
 			deg_to_rad(maximum_pitch_degrees)
 		)
 
-func _physics_process(delta: float) -> void:
+func _process(delta: float) -> void:
 	if not is_instance_valid(_target):
 		_target = get_node_or_null(target_path) as ActionDashPlayer
 		if _target == null:
@@ -68,6 +74,33 @@ func _physics_process(delta: float) -> void:
 		cos(_orbit_yaw) * cos(_orbit_pitch)
 	)
 	var desired_position := _target.global_position + orbit_direction * base_distance * _current_distance_multiplier
+	desired_position = _get_collision_safe_position(_target.global_position + Vector3.UP * look_height, desired_position)
 	var blend := 1.0 - exp(-follow_smoothing * delta)
 	global_position = global_position.lerp(desired_position, blend)
-	look_at(_target.global_position + Vector3.UP * look_height, Vector3.UP)
+	var desired_look_position := _target.global_position + Vector3.UP * look_height
+	var look_blend := 1.0 - exp(-look_smoothing * delta)
+	_smoothed_look_position = _smoothed_look_position.lerp(desired_look_position, look_blend)
+	look_at(_smoothed_look_position, Vector3.UP)
+
+func _get_collision_safe_position(look_origin: Vector3, desired_position: Vector3) -> Vector3:
+	var query := PhysicsRayQueryParameters3D.create(look_origin, desired_position, collision_mask)
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	query.exclude = [_target.get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return desired_position
+	return (hit["position"] as Vector3) + (hit["normal"] as Vector3) * collision_margin
+
+func snap_to_target() -> void:
+	if not is_instance_valid(_target):
+		return
+	var base_distance := follow_offset.length()
+	var orbit_direction := Vector3(
+		sin(_orbit_yaw) * cos(_orbit_pitch),
+		sin(_orbit_pitch),
+		cos(_orbit_yaw) * cos(_orbit_pitch)
+	)
+	global_position = _target.global_position + orbit_direction * base_distance * _current_distance_multiplier
+	_smoothed_look_position = _target.global_position + Vector3.UP * look_height
+	look_at(_smoothed_look_position, Vector3.UP)

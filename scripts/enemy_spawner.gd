@@ -28,12 +28,20 @@ var _active_flying: Array[ActionDashFlyingEnemy] = []
 var _ground_pool: Array[ActionDashEnemy] = []
 var _flying_pool: Array[ActionDashFlyingEnemy] = []
 var _active_boss: ActionDashBoss
+var _lod_batch_timer: float = 0.0
+var _ground_lod_batch: MultiMeshInstance3D
+var _flying_lod_batch: MultiMeshInstance3D
 
 func _ready() -> void:
 	_random.seed = deterministic_seed
+	_create_lod_batches()
 	set_process(false)
 
 func _process(delta: float) -> void:
+	_lod_batch_timer = maxf(_lod_batch_timer - delta, 0.0)
+	if _lod_batch_timer <= 0.0:
+		_lod_batch_timer = 0.1
+		_update_lod_batches()
 	_spawn_timer = maxf(_spawn_timer - delta, 0.0)
 	if _spawn_timer <= 0.0 and get_active_count() < _maximum_active and get_pending_count() > 0:
 		_spawn_one_pending()
@@ -54,6 +62,7 @@ func start_phase(config: ActionDashPhaseConfig) -> void:
 	set_process(true)
 	while get_active_count() < _maximum_active and get_pending_count() > 0:
 		_spawn_one_pending()
+	_update_lod_batches()
 
 func stop_phase() -> void:
 	set_process(false)
@@ -71,6 +80,7 @@ func clear_phase() -> void:
 	_pending_flying = 0
 	_boss_pending = false
 	_group_centers.clear()
+	_update_lod_batches()
 
 func get_active_count() -> int:
 	return _active_ground.size() + _active_flying.size() + (1 if is_instance_valid(_active_boss) and _active_boss.visible else 0)
@@ -221,3 +231,56 @@ func _random_point_around(center: Vector3, radius: float) -> Vector3:
 	var angle := _random.randf_range(0.0, TAU)
 	var distance := sqrt(_random.randf()) * radius
 	return center + Vector3(cos(angle), 0.0, sin(angle)) * distance
+
+func _create_lod_batches() -> void:
+	_ground_lod_batch = MultiMeshInstance3D.new()
+	_ground_lod_batch.name = "GroundEnemyLODBatch"
+	_ground_lod_batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_ground_lod_batch.multimesh = MultiMesh.new()
+	_ground_lod_batch.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	var ground_mesh := CapsuleMesh.new()
+	ground_mesh.radius = 0.5
+	ground_mesh.height = 1.7
+	var ground_material := StandardMaterial3D.new()
+	ground_material.albedo_color = Color(0.85, 0.22, 0.2)
+	ground_material.roughness = 0.8
+	ground_mesh.material = ground_material
+	_ground_lod_batch.multimesh.mesh = ground_mesh
+	add_child(_ground_lod_batch)
+
+	_flying_lod_batch = MultiMeshInstance3D.new()
+	_flying_lod_batch.name = "FlyingEnemyLODBatch"
+	_flying_lod_batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_flying_lod_batch.multimesh = MultiMesh.new()
+	_flying_lod_batch.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	var flying_mesh := SphereMesh.new()
+	flying_mesh.radius = 0.75
+	flying_mesh.height = 1.5
+	var flying_material := StandardMaterial3D.new()
+	flying_material.albedo_color = Color(0.28, 0.78, 0.92)
+	flying_material.emission_enabled = true
+	flying_material.emission = Color(0.04, 0.18, 0.24)
+	flying_mesh.material = flying_material
+	_flying_lod_batch.multimesh.mesh = flying_mesh
+	add_child(_flying_lod_batch)
+
+func _update_lod_batches() -> void:
+	if not is_instance_valid(_ground_lod_batch) or not is_instance_valid(_flying_lod_batch):
+		return
+	var ground_transforms: Array[Transform3D] = []
+	for enemy in _active_ground:
+		if is_instance_valid(enemy) and enemy.is_using_simplified_lod():
+			ground_transforms.append(enemy.get_simplified_lod_transform())
+	_set_batch_transforms(_ground_lod_batch.multimesh, ground_transforms)
+	var flying_transforms: Array[Transform3D] = []
+	for enemy in _active_flying:
+		if is_instance_valid(enemy) and enemy.is_using_simplified_lod():
+			flying_transforms.append(enemy.get_simplified_lod_transform())
+	_set_batch_transforms(_flying_lod_batch.multimesh, flying_transforms)
+
+func _set_batch_transforms(multimesh: MultiMesh, transforms: Array[Transform3D]) -> void:
+	if multimesh.instance_count < transforms.size():
+		multimesh.instance_count = transforms.size()
+	multimesh.visible_instance_count = transforms.size()
+	for index in transforms.size():
+		multimesh.set_instance_transform(index, transforms[index])

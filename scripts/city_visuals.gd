@@ -148,6 +148,7 @@ func _apply_building_color(model: Node3D, palette_index: int, horizon: bool) -> 
 		var mesh_instance := node as MeshInstance3D
 		if mesh_instance.mesh == null:
 			continue
+		mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var source := mesh_instance.mesh.surface_get_material(0) as StandardMaterial3D
 		var colored := source.duplicate() as StandardMaterial3D if source != null else StandardMaterial3D.new()
 		colored.albedo_color = colored.albedo_color * tint
