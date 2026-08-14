@@ -24,6 +24,7 @@ var _current_distance_multiplier: float = 1.0
 var _orbiting: bool = false
 
 func _ready() -> void:
+	process_physics_priority = 1
 	_target = get_node_or_null(target_path) as ActionDashPlayer
 	var base_distance := follow_offset.length()
 	if base_distance > 0.001:
@@ -47,7 +48,7 @@ func _input(event: InputEvent) -> void:
 			deg_to_rad(maximum_pitch_degrees)
 		)
 
-func _process(delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if not is_instance_valid(_target):
 		_target = get_node_or_null(target_path) as ActionDashPlayer
 		if _target == null:

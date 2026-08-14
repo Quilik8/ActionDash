@@ -1,4 +1,4 @@
-[gd_scene load_steps=28 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/gameplay/player.tscn" id="1_player"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/enemy.tscn" id="2_enemy"]
@@ -50,31 +50,6 @@ size = Vector3(1, 8, 240)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_wall_z"]
 size = Vector3(1, 8, 240)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_structure"]
-albedo_color = Color(0.24, 0.28, 0.34, 1)
-roughness = 0.9
-
-[sub_resource type="BoxMesh" id="BoxMesh_platform"]
-material = SubResource("StandardMaterial3D_structure")
-size = Vector3(34, 3, 24)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_platform"]
-size = Vector3(34, 3, 24)
-
-[sub_resource type="BoxMesh" id="BoxMesh_platform_east"]
-material = SubResource("StandardMaterial3D_structure")
-size = Vector3(42, 2, 20)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_platform_east"]
-size = Vector3(42, 2, 20)
-
-[sub_resource type="BoxMesh" id="BoxMesh_ramp"]
-material = SubResource("StandardMaterial3D_structure")
-size = Vector3(32, 1.2, 14)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_ramp"]
-size = Vector3(32, 1.2, 14)
 
 [node name="Playground" type="Node3D"]
 
@@ -148,115 +123,12 @@ mesh = SubResource("BoxMesh_wall_z")
 [node name="Collision" type="CollisionShape3D" parent="BoundaryEast"]
 shape = SubResource("BoxShape3D_wall_z")
 
-[node name="PlatformNorth" type="StaticBody3D" parent="."]
-position = Vector3(-82, 1.5, -70)
-collision_layer = 1
-collision_mask = 1
-
-[node name="Mesh" type="MeshInstance3D" parent="PlatformNorth"]
-mesh = SubResource("BoxMesh_platform")
-
-[node name="Collision" type="CollisionShape3D" parent="PlatformNorth"]
-shape = SubResource("BoxShape3D_platform")
-
-[node name="PlatformEast" type="StaticBody3D" parent="."]
-position = Vector3(92, 1, 28)
-collision_layer = 1
-collision_mask = 1
-
-[node name="Mesh" type="MeshInstance3D" parent="PlatformEast"]
-mesh = SubResource("BoxMesh_platform_east")
-
-[node name="Collision" type="CollisionShape3D" parent="PlatformEast"]
-shape = SubResource("BoxShape3D_platform_east")
-
-[node name="RampWest" type="StaticBody3D" parent="."]
-position = Vector3(-48, 1, -18)
-rotation_degrees = Vector3(-8, 0, 0)
-collision_layer = 1
-collision_mask = 1
-
-[node name="Mesh" type="MeshInstance3D" parent="RampWest"]
-mesh = SubResource("BoxMesh_ramp")
-
-[node name="Collision" type="CollisionShape3D" parent="RampWest"]
-shape = SubResource("BoxShape3D_ramp")
-
-[node name="RampSouth" type="StaticBody3D" parent="."]
-position = Vector3(30, 0.8, 78)
-rotation_degrees = Vector3(0, 0, 7)
-collision_layer = 1
-collision_mask = 1
-
-[node name="Mesh" type="MeshInstance3D" parent="RampSouth"]
-mesh = SubResource("BoxMesh_ramp")
-
-[node name="Collision" type="CollisionShape3D" parent="RampSouth"]
-shape = SubResource("BoxShape3D_ramp")
-
-[node name="PlatformNorthEast" type="StaticBody3D" parent="."]
-position = Vector3(78, 1.5, -72)
-collision_layer = 1
-collision_mask = 1
-
-[node name="Mesh" type="MeshInstance3D" parent="PlatformNorthEast"]
-mesh = SubResource("BoxMesh_platform")
-
-[node name="Collision" type="CollisionShape3D" parent="PlatformNorthEast"]
-shape = SubResource("BoxShape3D_platform")
-
-[node name="PlatformSouthWest" type="StaticBody3D" parent="."]
-position = Vector3(-72, 1, 72)
-collision_layer = 1
-collision_mask = 1
-
-[node name="Mesh" type="MeshInstance3D" parent="PlatformSouthWest"]
-mesh = SubResource("BoxMesh_platform_east")
-
-[node name="Collision" type="CollisionShape3D" parent="PlatformSouthWest"]
-shape = SubResource("BoxShape3D_platform_east")
-
-[node name="PlatformCentralEast" type="StaticBody3D" parent="."]
-position = Vector3(48, 1, -22)
-collision_layer = 1
-collision_mask = 1
-
-[node name="Mesh" type="MeshInstance3D" parent="PlatformCentralEast"]
-mesh = SubResource("BoxMesh_platform_east")
-
-[node name="Collision" type="CollisionShape3D" parent="PlatformCentralEast"]
-shape = SubResource("BoxShape3D_platform_east")
-
-[node name="RampNorth" type="StaticBody3D" parent="."]
-position = Vector3(16, 0.8, -82)
-rotation_degrees = Vector3(-7, 0, 0)
-collision_layer = 1
-collision_mask = 1
-
-[node name="Mesh" type="MeshInstance3D" parent="RampNorth"]
-mesh = SubResource("BoxMesh_ramp")
-
-[node name="Collision" type="CollisionShape3D" parent="RampNorth"]
-shape = SubResource("BoxShape3D_ramp")
-
-[node name="RampEast" type="StaticBody3D" parent="."]
-position = Vector3(108, 0.8, -34)
-rotation_degrees = Vector3(0, 0, -7)
-collision_layer = 1
-collision_mask = 1
-
-[node name="Mesh" type="MeshInstance3D" parent="RampEast"]
-mesh = SubResource("BoxMesh_ramp")
-
-[node name="Collision" type="CollisionShape3D" parent="RampEast"]
-shape = SubResource("BoxShape3D_ramp")
-
 [node name="CameraRig" type="Node3D" parent="."]
 script = ExtResource("4_camera")
 target_path = NodePath("../Player")
 follow_offset = Vector3(0, 9, 12)
 follow_smoothing = 10.0
-look_height = 0.7
+look_height = 1.25
 high_speed_distance_multiplier = 1.35
 normal_fov = 70.0
 high_speed_fov = 82.0

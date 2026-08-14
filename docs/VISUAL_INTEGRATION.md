@@ -23,7 +23,9 @@ Ground distribution is deterministic per phase: mostly Skeleton, approximately o
 
 ## Provisional city
 
-`city_visuals.gd` creates nine flat road/plaza surfaces, 30 playable-edge buildings with one simple box collider each, and 28 low-detail skyline buildings outside the playable limits without collision. The result preserves the full 300 x 240 movement area and keeps three long north/south routes, three long east/west routes, and open plazas. Existing ramps and elevated platforms remain as simple gameplay geometry.
+`city_visuals.gd` creates nine flat road/plaza surfaces, 30 playable-edge buildings with one simple box collider each, and 28 low-detail skyline buildings outside the playable limits without collision. The result preserves the full 300 x 240 movement area and keeps three long north/south routes, three long east/west routes, and open plazas. The old ramps and raised debug platforms were removed so the entire traversable surface is physically flat.
+
+Each building collider is calculated from the real transformed model bounds and expanded 12% horizontally, preventing the Player from entering facade or overhang geometry. The camera follows the CharacterBody in the physics cycle, after Player movement, to avoid render/physics micro-jitter.
 
 Six lightweight material tints add blue, coral, yellow, green, violet, and pink variation while preserving the Kenney colormap texture. Horizon buildings use a desaturated version of the same palette.
 

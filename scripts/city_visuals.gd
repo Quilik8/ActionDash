@@ -114,13 +114,31 @@ func _add_building(file_name: String, world_position: Vector3, scale_value: floa
 	if collidable:
 		var shape_node := CollisionShape3D.new()
 		var box := BoxShape3D.new()
-		var width := 11.0 + float(holder.get_index() % 3) * 2.0
-		var depth := 11.0 + float((holder.get_index() + 1) % 3) * 2.0
-		var height := 14.0 + float(holder.get_index() % 5) * 3.0
-		box.size = Vector3(width, height, depth)
+		var visual_bounds := _get_bounds_relative_to(model, holder)
+		box.size = Vector3(
+			maxf(visual_bounds.size.x * 1.12, 2.0),
+			maxf(visual_bounds.size.y + 0.5, 3.0),
+			maxf(visual_bounds.size.z * 1.12, 2.0)
+		)
 		shape_node.shape = box
-		shape_node.position.y = height * 0.5
+		shape_node.position = visual_bounds.get_center()
 		holder.add_child(shape_node)
+		holder.set_meta("visual_bounds_size", visual_bounds.size)
+		holder.set_meta("collision_size", box.size)
+
+func _get_bounds_relative_to(model: Node3D, relative_to: Node3D) -> AABB:
+	var result := AABB()
+	var first := true
+	var relative_inverse := relative_to.global_transform.affine_inverse()
+	for node in model.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := node as MeshInstance3D
+		if mesh_instance.mesh == null:
+			continue
+		var local_transform := relative_inverse * mesh_instance.global_transform
+		var local_bounds: AABB = local_transform * mesh_instance.get_aabb()
+		result = local_bounds if first else result.merge(local_bounds)
+		first = false
+	return result
 
 func _apply_building_color(model: Node3D, palette_index: int, horizon: bool) -> void:
 	var tint: Color = BUILDING_PALETTE[palette_index % BUILDING_PALETTE.size()]
