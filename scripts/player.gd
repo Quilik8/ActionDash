@@ -114,6 +114,9 @@ func get_melee_radius_multiplier() -> float:
 func get_effective_melee_radius() -> float:
 	return _proximity_damage.get_effective_radius(get_horizontal_speed(), max_speed)
 
+func get_visual_melee_radius() -> float:
+	return _proximity_damage.get_visual_radius(get_horizontal_speed(), max_speed)
+
 func get_estimated_landing_radius() -> float:
 	return _proximity_damage.get_landing_radius(get_horizontal_speed(), max_speed)
 
@@ -329,8 +332,8 @@ func _ensure_super_movement_input() -> void:
 func _on_ranged_power_activated(origin: Vector3, direction: Vector3) -> void:
 	energy_attack_fired.emit(origin, direction)
 
-func _on_proximity_hit(world_position: Vector3, targets_hit: int, multiplier: float, effective_radius: float) -> void:
-	proximity_attack.emit(world_position, targets_hit, multiplier, effective_radius)
+func _on_proximity_hit(world_position: Vector3, targets_hit: int, multiplier: float, _effective_radius: float) -> void:
+	proximity_attack.emit(world_position, targets_hit, multiplier, get_visual_melee_radius())
 
 func _on_kinetic_wave(world_position: Vector3, targets_hit: int) -> void:
 	kinetic_wave.emit(world_position, targets_hit)

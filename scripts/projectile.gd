@@ -3,9 +3,6 @@ extends Node3D
 
 signal enemy_hit(position: Vector3, damage: float)
 
-@export_category("Detection")
-@export var base_hit_radius: float = 0.55
-
 var _direction := Vector3.FORWARD
 var _speed: float = 52.0
 var _damage: float = 4.0
@@ -15,18 +12,17 @@ var _hit_enemy_ids: Dictionary = {}
 
 @onready var _presentation: ActionDashEnergyProjectileVisual = $Presentation
 
-func setup(direction: Vector3, speed: float, damage: float, size: float, lifetime: float) -> void:
+func setup(direction: Vector3, speed: float, damage: float, visual_radius: float, contact_margin: float, lifetime: float) -> void:
 	_direction = direction.normalized()
 	_speed = speed
 	_damage = damage
-	_hit_radius = maxf(size, 0.05)
+	_hit_radius = maxf(visual_radius + contact_margin, 0.05)
 	_remaining_lifetime = lifetime
 	look_at(global_position + _direction, Vector3.UP)
 	if is_node_ready():
-		_presentation.configure_size(size)
+		_presentation.configure_size(visual_radius)
 
 func _ready() -> void:
-	_presentation.configure_size(_hit_radius)
 	_presentation.play_launch()
 
 func _process(delta: float) -> void:

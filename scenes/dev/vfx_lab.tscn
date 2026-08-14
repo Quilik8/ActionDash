@@ -1,0 +1,53 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/dev/vfx_lab.gd" id="1_lab"]
+[ext_resource type="Script" path="res://scripts/dev/asset_lab_camera.gd" id="2_camera"]
+
+[sub_resource type="Environment" id="Environment_lab"]
+background_mode = 1
+background_color = Color(0.015, 0.02, 0.04, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.35, 0.42, 0.6, 1)
+ambient_light_energy = 0.5
+
+[sub_resource type="StandardMaterial3D" id="FloorMaterial"]
+albedo_color = Color(0.055, 0.065, 0.09, 1)
+roughness = 0.9
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+material = SubResource("FloorMaterial")
+size = Vector3(24, 0.2, 24)
+
+[node name="VFXLab" type="Node3D"]
+script = ExtResource("1_lab")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_lab")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-55, -20, 0)
+light_energy = 0.75
+shadow_enabled = false
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.1, -3)
+mesh = SubResource("FloorMesh")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+position = Vector3(0, 6, 17)
+rotation_degrees = Vector3(-14, 0, 0)
+script = ExtResource("2_camera")
+movement_speed = 10.0
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Instructions" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 900.0
+offset_bottom = 86.0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 18
+text = "VFX LAB — partículas ligeras y flipbooks Brackeys CC0\nWASF mover | Q/E bajar/subir | Shift rápido | MMB mirar"

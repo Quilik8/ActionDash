@@ -165,8 +165,8 @@ script = ExtResource("2_proximity")
 damage_radius = 6.3
 maximum_radius_multiplier = 1.5
 radius_scaling_exponent = 1.15
+contact_radius_multiplier = 1.1
 kinetic_max_impact_multiplier = 2.0
-airborne_vertical_reach = 2.0
 landing_melee_multiplier = 1.5
 
 [node name="RangedPower" type="Node" parent="Gameplay"]
@@ -178,6 +178,7 @@ projectile_count = 1
 impact_behavior = &"standard"
 projectile_speed = 52.0
 projectile_size = 1.6
+projectile_contact_margin = 0.2
 projectile_lifetime = 1.8
 
 [node name="Debug" type="Node3D" parent="."]

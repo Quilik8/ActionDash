@@ -9,12 +9,12 @@ signal landing_impact(position: Vector3, targets_hit: int, damage_multiplier: fl
 @export var damage_radius: float = 6.3
 @export var maximum_radius_multiplier: float = 1.5
 @export_range(0.25, 3.0, 0.05) var radius_scaling_exponent: float = 1.15
+@export_range(1.0, 1.5, 0.01) var contact_radius_multiplier: float = 1.1
 @export var base_damage: float = 1.0
 @export var scaling_start_speed: float = 8.0
 @export var maximum_damage_multiplier: float = 3.0
 @export_range(0.25, 3.0, 0.05) var scaling_exponent: float = 1.35
 @export var damage_interval: float = 0.35
-@export var airborne_vertical_reach: float = 2.0
 
 @export_category("Maximum kinetic state")
 @export_range(0.5, 1.0, 0.01) var kinetic_max_threshold: float = 0.9
@@ -79,6 +79,9 @@ func get_radius_multiplier(horizontal_speed: float, configured_max_speed: float)
 	return lerpf(1.0, maximum_radius_multiplier, curved_progress)
 
 func get_effective_radius(horizontal_speed: float, configured_max_speed: float) -> float:
+	return get_visual_radius(horizontal_speed, configured_max_speed) * contact_radius_multiplier
+
+func get_visual_radius(horizontal_speed: float, configured_max_speed: float) -> float:
 	return damage_radius * get_radius_multiplier(horizontal_speed, configured_max_speed)
 
 func get_landing_radius(horizontal_speed: float, configured_max_speed: float) -> float:
@@ -123,7 +126,7 @@ func _get_melee_targets(world_position: Vector3, radius: float, allow_flying: bo
 			continue
 		var offset: Vector3 = enemy.get_projectile_hit_position() - world_position
 		if is_flying:
-			if absf(offset.y) <= airborne_vertical_reach and Vector2(offset.x, offset.z).length_squared() <= radius_squared:
+			if offset.y > 0.0 and Vector2(offset.x, offset.z).length_squared() <= radius_squared:
 				result.append(enemy)
 		elif offset.length_squared() <= radius_squared:
 			result.append(enemy)

@@ -3,7 +3,8 @@ extends ActionDashRangedPower
 
 @export_category("Energy sphere")
 @export var projectile_speed: float = 52.0
-@export var projectile_size: float = 0.48
+@export var projectile_size: float = 1.6
+@export var projectile_contact_margin: float = 0.2
 @export var projectile_lifetime: float = 1.8
 
 func activate(world: Node, origin: Vector3, target: Vector3) -> bool:
@@ -19,7 +20,7 @@ func activate(world: Node, origin: Vector3, target: Vector3) -> bool:
 		var projectile := projectile_scene.instantiate()
 		world.add_child(projectile)
 		projectile.global_position = origin
-		projectile.setup(direction, projectile_speed, damage, projectile_size, projectile_lifetime)
+		projectile.setup(direction, projectile_speed, damage, projectile_size, projectile_contact_margin, projectile_lifetime)
 	_begin_cooldown()
 	activated.emit(origin, direction)
 	return true

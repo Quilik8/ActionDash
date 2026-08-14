@@ -1,0 +1,52 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/dev/asset_lab_enemies.gd" id="1_lab"]
+[ext_resource type="Script" path="res://scripts/dev/asset_lab_camera.gd" id="2_camera"]
+
+[sub_resource type="Environment" id="Environment_lab"]
+background_mode = 1
+background_color = Color(0.045, 0.055, 0.08, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.75, 0.8, 0.9, 1)
+ambient_light_energy = 0.8
+
+[sub_resource type="StandardMaterial3D" id="FloorMaterial"]
+albedo_color = Color(0.11, 0.13, 0.16, 1)
+roughness = 1.0
+
+[sub_resource type="BoxMesh" id="FloorMesh"]
+material = SubResource("FloorMaterial")
+size = Vector3(52, 0.2, 30)
+
+[node name="AssetLabEnemies" type="Node3D"]
+script = ExtResource("1_lab")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_lab")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-50, -25, 0)
+light_energy = 1.25
+shadow_enabled = false
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+position = Vector3(0, -0.1, -5)
+mesh = SubResource("FloorMesh")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+position = Vector3(0, 8, 24)
+rotation_degrees = Vector3(-12, 0, 0)
+script = ExtResource("2_camera")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Instructions" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 850.0
+offset_bottom = 82.0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 18
+text = "ENEMY LAB — 10 criaturas Quaternius | ←/→ cambia animaciones\nWASF mover | Q/E bajar/subir | Shift rápido | MMB mirar"
