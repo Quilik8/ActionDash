@@ -83,6 +83,8 @@ script = ExtResource("1_player")
 normal_speed = 18.0
 max_speed = 36.0
 acceleration = 34.0
+super_initial_speed = 8.0
+super_turning_response = 12.0
 deceleration = 7.0
 super_exit_deceleration = 24.0
 momentum_preservation = 0.84
@@ -94,7 +96,7 @@ air_deceleration = 1.8
 fall_limit_y = -12.0
 respawn_position = Vector3(0, 0, 0)
 aim_distance = 60.0
-show_aim_marker = true
+show_aim_marker = false
 aim_collision_mask = 3
 
 [node name="VisualRoot" type="Node3D" parent="."]
@@ -148,12 +150,17 @@ position = Vector3(0, 0.9, 0)
 
 [node name="ProximityDamage" type="Node" parent="Gameplay"]
 script = ExtResource("2_proximity")
-damage_radius = 6.3
-maximum_radius_multiplier = 1.5
-radius_scaling_exponent = 1.15
-contact_radius_multiplier = 1.1
-kinetic_max_impact_multiplier = 2.0
+damage_radius = 5.2
+melee_cooldown = 0.28
+front_dot_threshold = -0.15
+close_assist_radius = 2.2
+maximum_targets = 1
+base_knockback_force = 8.0
+maximum_speed_knockback_bonus = 20.0
+knockback_duration = 0.52
+knockback_vertical_boost = 3.2
 landing_radius = 5.0
+landing_knockback_force = 9.0
 
 [node name="RangedPower" type="Node" parent="Gameplay"]
 script = ExtResource("5_power")

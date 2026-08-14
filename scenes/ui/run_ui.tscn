@@ -53,6 +53,20 @@ theme_override_font_sizes/font_size = 17
 text = "TIEMPO: 01:45"
 horizontal_alignment = 2
 
+[node name="CoreLabel" type="Label" parent="HUD"]
+layout_mode = 0
+offset_left = 620.0
+offset_top = 96.0
+offset_right = 944.0
+offset_bottom = 122.0
+theme_override_colors/font_color = Color(0.25, 0.9, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.85)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 17
+text = "INTEGRIDAD DEL NÚCLEO: 1000 / 1000"
+horizontal_alignment = 2
+
 [node name="Overlay" type="Control" parent="."]
 layout_mode = 3
 anchors_preset = 15

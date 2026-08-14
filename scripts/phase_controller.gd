@@ -19,6 +19,7 @@ enum RunState { COMBAT, PHASE_COMPLETE, CARDS, SKILL_TREE, DEFEAT, MACROZONE_COM
 @export var spawner_path: NodePath
 @export var run_ui_path: NodePath
 @export var deterioration_path: NodePath
+@export var protected_core_path: NodePath
 
 var _state: RunState = RunState.COMBAT
 var _phase_index: int = 0
@@ -33,10 +34,13 @@ var _current_card_choices: Array[ActionDashRunUpgrade] = []
 @onready var _spawner: ActionDashEnemySpawner = get_node(spawner_path) as ActionDashEnemySpawner
 @onready var _run_ui: ActionDashRunUI = get_node(run_ui_path) as ActionDashRunUI
 @onready var _deterioration: ActionDashEnvironmentDeterioration = get_node(deterioration_path) as ActionDashEnvironmentDeterioration
+@onready var _protected_core: ActionDashProtectedCore = get_node(protected_core_path) as ActionDashProtectedCore
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_spawner.enemy_defeated.connect(_on_enemy_defeated)
+	_protected_core.integrity_changed.connect(_on_core_integrity_changed)
+	_protected_core.depleted.connect(_on_core_depleted)
 	_run_ui.card_selected.connect(select_card)
 	_run_ui.skill_selected.connect(purchase_skill)
 	_run_ui.continue_requested.connect(continue_run)
@@ -50,8 +54,6 @@ func _process(delta: float) -> void:
 	_update_hud()
 	var config := get_current_phase_config()
 	_deterioration.update_time_ratio(_time_remaining / maxf(config.time_limit_seconds, 0.001))
-	if _time_remaining <= 0.0 and _enemies_remaining > 0:
-		_defeat_run()
 
 func start_new_run() -> void:
 	get_tree().paused = false
@@ -60,6 +62,7 @@ func start_new_run() -> void:
 	_purchased_skills.clear()
 	_chosen_cards.clear()
 	_player.restore_base_run_stats()
+	_protected_core.reset_integrity()
 	_start_current_phase()
 
 func select_card(upgrade_id: StringName) -> bool:
@@ -120,6 +123,12 @@ func get_enemies_remaining() -> int:
 func get_time_remaining() -> float:
 	return _time_remaining
 
+func get_core_integrity() -> float:
+	return _protected_core.get_integrity() if is_instance_valid(_protected_core) else 0.0
+
+func get_core_maximum_integrity() -> float:
+	return _protected_core.get_maximum_integrity() if is_instance_valid(_protected_core) else 0.0
+
 func get_run_skill_points() -> int:
 	return _run_skill_points
 
@@ -171,6 +180,8 @@ func _open_cards() -> void:
 	_run_ui.show_cards(_current_card_choices)
 
 func _defeat_run() -> void:
+	if _state == RunState.DEFEAT:
+		return
 	_state = RunState.DEFEAT
 	_spawner.stop_phase()
 	get_tree().paused = true
@@ -180,4 +191,16 @@ func _defeat_run() -> void:
 func _update_hud() -> void:
 	if phases.is_empty():
 		return
-	_run_ui.set_hud(get_current_phase_config().display_name, _enemies_remaining, _time_remaining)
+	_run_ui.set_hud(
+		get_current_phase_config().display_name,
+		_enemies_remaining,
+		_time_remaining,
+		get_core_integrity(),
+		get_core_maximum_integrity()
+	)
+
+func _on_core_integrity_changed(_current: float, _maximum: float) -> void:
+	_update_hud()
+
+func _on_core_depleted() -> void:
+	_defeat_run()

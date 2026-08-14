@@ -9,6 +9,7 @@ signal restart_requested
 @onready var _phase_label: Label = $HUD/PhaseLabel
 @onready var _enemy_label: Label = $HUD/EnemyLabel
 @onready var _time_label: Label = $HUD/TimeLabel
+@onready var _core_label: Label = $HUD/CoreLabel
 @onready var _message_panel: PanelContainer = $Overlay/MessagePanel
 @onready var _message_label: Label = $Overlay/MessagePanel/Message
 @onready var _cards_panel: PanelContainer = $Overlay/CardsPanel
@@ -27,11 +28,12 @@ func _ready() -> void:
 	_restart_button.pressed.connect(func() -> void: restart_requested.emit())
 	hide_overlay()
 
-func set_hud(phase_name: String, enemies_remaining: int, time_remaining: float) -> void:
+func set_hud(phase_name: String, enemies_remaining: int, time_remaining: float, core_integrity: float, core_maximum: float) -> void:
 	_phase_label.text = phase_name
 	_enemy_label.text = "ENEMIGOS: %d" % enemies_remaining
 	var seconds := maxi(ceili(time_remaining), 0)
 	_time_label.text = "TIEMPO: %02d:%02d" % [floori(float(seconds) / 60.0), seconds % 60]
+	_core_label.text = "INTEGRIDAD DEL NÚCLEO: %d / %d" % [ceili(core_integrity), ceili(core_maximum)]
 
 func hide_overlay() -> void:
 	_message_panel.visible = false
@@ -63,7 +65,9 @@ func show_skill_tree(catalog: ActionDashUpgradeCatalog, points: int, purchased: 
 	_points_label.text = "PUNTOS DE RUN DISPONIBLES: %d" % points
 	_build_branch(_movement_box, "MOVIMIENTO", catalog.movement_tree, points, purchased)
 	_build_branch(_melee_box, "MELEE", catalog.melee_tree, points, purchased)
-	_build_branch(_ranged_box, "PODER A DISTANCIA", catalog.ranged_tree, points, purchased)
+	_ranged_box.visible = not catalog.ranged_tree.is_empty()
+	if _ranged_box.visible:
+		_build_branch(_ranged_box, "PODER A DISTANCIA", catalog.ranged_tree, points, purchased)
 
 func show_defeat() -> void:
 	hide_overlay()

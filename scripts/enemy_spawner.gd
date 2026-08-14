@@ -207,11 +207,15 @@ func _create_group_centers(group_count: int, minimum_distance: float) -> void:
 		var candidate := Vector3.ZERO
 		var accepted := false
 		for _attempt in 120:
-			candidate = Vector3(
-				_random.randf_range(-spawn_area_half_extents.x, spawn_area_half_extents.x),
-				0.0,
-				_random.randf_range(-spawn_area_half_extents.y, spawn_area_half_extents.y)
-			)
+			match group_index % 4:
+				0:
+					candidate = Vector3(_random.randf_range(-spawn_area_half_extents.x, spawn_area_half_extents.x), 0.0, -spawn_area_half_extents.y)
+				1:
+					candidate = Vector3(spawn_area_half_extents.x, 0.0, _random.randf_range(-spawn_area_half_extents.y, spawn_area_half_extents.y))
+				2:
+					candidate = Vector3(_random.randf_range(-spawn_area_half_extents.x, spawn_area_half_extents.x), 0.0, spawn_area_half_extents.y)
+				_:
+					candidate = Vector3(-spawn_area_half_extents.x, 0.0, _random.randf_range(-spawn_area_half_extents.y, spawn_area_half_extents.y))
 			if Vector2(candidate.x, candidate.z).length() < center_safe_radius:
 				continue
 			if _is_far_enough(candidate, minimum_distance):
@@ -231,7 +235,10 @@ func _is_far_enough(candidate: Vector3, minimum_distance: float) -> bool:
 func _random_point_around(center: Vector3, radius: float) -> Vector3:
 	var angle := _random.randf_range(0.0, TAU)
 	var distance := sqrt(_random.randf()) * radius
-	return center + Vector3(cos(angle), 0.0, sin(angle)) * distance
+	var point := center + Vector3(cos(angle), 0.0, sin(angle)) * distance
+	point.x = clampf(point.x, -spawn_area_half_extents.x, spawn_area_half_extents.x)
+	point.z = clampf(point.z, -spawn_area_half_extents.y, spawn_area_half_extents.y)
+	return point
 
 func _create_lod_batches() -> void:
 	_ground_lod_batch = MultiMeshInstance3D.new()

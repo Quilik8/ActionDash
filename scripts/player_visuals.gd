@@ -9,9 +9,7 @@ const CIRCLE_TEXTURE := preload("res://assets/vfx/brackeys/particles/circle_03_a
 const TRACE_TEXTURE := preload("res://assets/vfx/brackeys/particles/trace_03_a.png")
 
 var _proximity_timer: float = 0.0
-var _wave_timer: float = 0.0
 var _landing_timer: float = 0.0
-var _muzzle_timer: float = 0.0
 var _action_timer: float = 0.0
 var _landing_animation_timer: float = 0.0
 var _was_on_floor: bool = true
@@ -34,9 +32,7 @@ var _arrow_bob_time: float = 0.0
 
 func _ready() -> void:
 	var player := get_parent() as ActionDashPlayer
-	player.energy_attack_fired.connect(_on_energy_attack_fired)
-	player.proximity_attack.connect(_on_proximity_attack)
-	player.kinetic_wave.connect(_on_kinetic_wave)
+	player.melee_attack.connect(_on_melee_attack)
 	player.kinetic_state_changed.connect(_on_kinetic_state_changed)
 	player.landing_attack.connect(_on_landing_attack)
 	_install_humanoid()
@@ -52,20 +48,9 @@ func _process(delta: float) -> void:
 	_update_super_feedback(player)
 	_update_enemy_arrow(player, delta)
 	_update_effect(_proximity_flash, "_proximity_timer", delta, 8.0)
-	_update_effect(_wave_flash, "_wave_timer", delta, 7.0)
 	_update_effect(_landing_flash, "_landing_timer", delta, 8.5)
-	_update_effect(_muzzle_flash, "_muzzle_timer", delta, 9.0)
 
-func _on_energy_attack_fired(origin: Vector3, _direction: Vector3) -> void:
-	if not enable_temporary_vfx:
-		return
-	_muzzle_timer = 0.14
-	_muzzle_flash.top_level = true
-	_muzzle_flash.global_position = origin
-	_show_effect(_muzzle_flash, 0.25)
-	_play_action(&"Spell_Simple_Shoot", 0.42)
-
-func _on_proximity_attack(_position: Vector3, _targets_hit: int, _damage_multiplier: float, effective_radius: float) -> void:
+func _on_melee_attack(_position: Vector3, _targets_hit: int, _damage_multiplier: float, effective_radius: float, _knockback_force: float) -> void:
 	if not enable_temporary_vfx:
 		return
 	_proximity_timer = 0.16
@@ -73,12 +58,6 @@ func _on_proximity_attack(_position: Vector3, _targets_hit: int, _damage_multipl
 	_slash_sprite.visible = true
 	_slash_sprite.scale = Vector3.ONE * clampf(effective_radius * 0.25, 1.3, 2.8)
 	_play_action(&"Punch_Cross", 0.34)
-
-func _on_kinetic_wave(_position: Vector3, _targets_hit: int) -> void:
-	if not enable_temporary_vfx:
-		return
-	_wave_timer = 0.24
-	_show_effect(_wave_flash, 1.1)
 
 func _on_kinetic_state_changed(active: bool) -> void:
 	_kinetic_aura.visible = enable_temporary_vfx and active
@@ -177,7 +156,10 @@ func _update_enemy_arrow(player: ActionDashPlayer, delta: float) -> void:
 	if _arrow_update_timer > 0.0:
 		return
 	_arrow_update_timer = 0.1
-	var phase_controller := get_tree().current_scene.get_node_or_null("PhaseController") as ActionDashPhaseController
+	var scene_root := get_tree().current_scene
+	if scene_root == null:
+		scene_root = player.get_parent()
+	var phase_controller := scene_root.get_node_or_null("PhaseController") as ActionDashPhaseController
 	if phase_controller == null or phase_controller.get_state() != ActionDashPhaseController.RunState.COMBAT or phase_controller.get_time_remaining() > 30.0:
 		_enemy_arrow.visible = false
 		return

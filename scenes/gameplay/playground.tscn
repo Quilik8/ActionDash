@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=26 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/gameplay/player.tscn" id="1_player"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/enemy.tscn" id="2_enemy"]
@@ -14,6 +14,7 @@
 [ext_resource type="Resource" path="res://resources/phases/phase_3.tres" id="12_phase_3"]
 [ext_resource type="Resource" path="res://resources/upgrades/run_upgrade_catalog.tres" id="13_catalog"]
 [ext_resource type="Script" path="res://scripts/city_visuals.gd" id="14_city"]
+[ext_resource type="Script" path="res://scripts/protected_core.gd" id="15_core"]
 
 [sub_resource type="Environment" id="Environment_playground"]
 background_mode = 1
@@ -28,10 +29,10 @@ roughness = 0.95
 
 [sub_resource type="BoxMesh" id="BoxMesh_floor"]
 material = SubResource("StandardMaterial3D_floor")
-size = Vector3(300, 0.2, 240)
+size = Vector3(220, 0.2, 420)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_floor"]
-size = Vector3(300, 0.2, 240)
+size = Vector3(220, 0.2, 420)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wall"]
 albedo_color = Color(0.08, 0.1, 0.14, 1)
@@ -39,17 +40,44 @@ roughness = 1.0
 
 [sub_resource type="BoxMesh" id="BoxMesh_wall_x"]
 material = SubResource("StandardMaterial3D_wall")
-size = Vector3(300, 8, 1)
+size = Vector3(220, 8, 1)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_wall_x"]
-size = Vector3(300, 8, 1)
+size = Vector3(220, 8, 1)
 
 [sub_resource type="BoxMesh" id="BoxMesh_wall_z"]
 material = SubResource("StandardMaterial3D_wall")
-size = Vector3(1, 8, 240)
+size = Vector3(1, 8, 420)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_wall_z"]
-size = Vector3(1, 8, 240)
+size = Vector3(1, 8, 420)
+
+[sub_resource type="StandardMaterial3D" id="CoreBaseMaterial"]
+albedo_color = Color(0.12, 0.16, 0.22, 1)
+metallic = 0.65
+roughness = 0.32
+
+[sub_resource type="CylinderMesh" id="CoreBaseMesh"]
+material = SubResource("CoreBaseMaterial")
+top_radius = 3.8
+bottom_radius = 4.5
+height = 2.4
+
+[sub_resource type="CylinderShape3D" id="CoreCollisionShape"]
+radius = 4.5
+height = 2.4
+
+[sub_resource type="StandardMaterial3D" id="CoreEnergyMaterial"]
+transparency = 1
+albedo_color = Color(0.12, 0.82, 1, 0.62)
+emission_enabled = true
+emission = Color(0.04, 0.62, 1, 1)
+shading_mode = 0
+
+[sub_resource type="SphereMesh" id="CoreEnergyMesh"]
+material = SubResource("CoreEnergyMaterial")
+radius = 2.1
+height = 4.2
 
 [node name="Playground" type="Node3D"]
 
@@ -75,8 +103,27 @@ mesh = SubResource("BoxMesh_floor")
 [node name="Collision" type="CollisionShape3D" parent="Floor"]
 shape = SubResource("BoxShape3D_floor")
 
+[node name="ProtectedCore" type="StaticBody3D" parent="."]
+collision_layer = 1
+collision_mask = 1
+script = ExtResource("15_core")
+maximum_integrity = 1000.0
+approach_radius = 7.0
+
+[node name="Base" type="MeshInstance3D" parent="ProtectedCore"]
+position = Vector3(0, 1.2, 0)
+mesh = SubResource("CoreBaseMesh")
+
+[node name="Energy" type="MeshInstance3D" parent="ProtectedCore"]
+position = Vector3(0, 3.0, 0)
+mesh = SubResource("CoreEnergyMesh")
+
+[node name="Collision" type="CollisionShape3D" parent="ProtectedCore"]
+position = Vector3(0, 1.2, 0)
+shape = SubResource("CoreCollisionShape")
+
 [node name="BoundaryNorth" type="StaticBody3D" parent="."]
-position = Vector3(0, 4, -120)
+position = Vector3(0, 4, -210)
 collision_layer = 4
 collision_mask = 1
 
@@ -88,7 +135,7 @@ mesh = SubResource("BoxMesh_wall_x")
 shape = SubResource("BoxShape3D_wall_x")
 
 [node name="BoundarySouth" type="StaticBody3D" parent="."]
-position = Vector3(0, 4, 120)
+position = Vector3(0, 4, 210)
 collision_layer = 4
 collision_mask = 1
 
@@ -100,7 +147,7 @@ mesh = SubResource("BoxMesh_wall_x")
 shape = SubResource("BoxShape3D_wall_x")
 
 [node name="BoundaryWest" type="StaticBody3D" parent="."]
-position = Vector3(-150, 4, 0)
+position = Vector3(-110, 4, 0)
 collision_layer = 4
 collision_mask = 1
 
@@ -112,7 +159,7 @@ mesh = SubResource("BoxMesh_wall_z")
 shape = SubResource("BoxShape3D_wall_z")
 
 [node name="BoundaryEast" type="StaticBody3D" parent="."]
-position = Vector3(150, 4, 0)
+position = Vector3(110, 4, 0)
 collision_layer = 4
 collision_mask = 1
 
@@ -142,13 +189,15 @@ current = true
 fov = 70.0
 
 [node name="Player" parent="." instance=ExtResource("1_player")]
+position = Vector3(0, 0, 14)
+respawn_position = Vector3(0, 0, 14)
 
 [node name="EnemySpawner" type="Node3D" parent="."]
 script = ExtResource("5_spawner")
 enemy_scene = ExtResource("2_enemy")
 flying_enemy_scene = ExtResource("3_flying_enemy")
-spawn_area_half_extents = Vector2(125, 95)
-center_safe_radius = 20.0
+spawn_area_half_extents = Vector2(92, 185)
+center_safe_radius = 34.0
 flying_spawn_height = 7.0
 
 [node name="EnvironmentDeterioration" type="Node" parent="."]
@@ -166,6 +215,7 @@ player_path = NodePath("../Player")
 spawner_path = NodePath("../EnemySpawner")
 run_ui_path = NodePath("../RunUI")
 deterioration_path = NodePath("../EnvironmentDeterioration")
+protected_core_path = NodePath("../ProtectedCore")
 
 [node name="DebugLayer" type="CanvasLayer" parent="."]
 
@@ -183,3 +233,4 @@ text = "ActionDash MVP"
 script = ExtResource("6_debug")
 player_path = NodePath("../../Player")
 phase_controller_path = NodePath("../../PhaseController")
+protected_core_path = NodePath("../../ProtectedCore")

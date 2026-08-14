@@ -52,28 +52,27 @@ func _create_materials() -> void:
 	_plaza_material.roughness = 0.9
 
 func _create_street_surface() -> void:
-	_add_surface("CentralAvenueNS", Vector3(0, 0.115, 0), Vector3(34, 0.03, 238), _asphalt_material)
-	_add_surface("CentralAvenueEW", Vector3(0, 0.117, 0), Vector3(298, 0.032, 32), _asphalt_material)
-	_add_surface("WestAvenueNS", Vector3(-72, 0.116, 0), Vector3(24, 0.031, 220), _asphalt_material)
-	_add_surface("EastAvenueNS", Vector3(72, 0.116, 0), Vector3(24, 0.031, 220), _asphalt_material)
-	_add_surface("NorthAvenueEW", Vector3(0, 0.118, -62), Vector3(280, 0.034, 22), _asphalt_material)
-	_add_surface("SouthAvenueEW", Vector3(0, 0.118, 62), Vector3(280, 0.034, 22), _asphalt_material)
+	_add_surface("CentralAvenueNS", Vector3(0, 0.115, 0), Vector3(34, 0.03, 410), _asphalt_material)
+	_add_surface("CentralAvenueEW", Vector3(0, 0.117, 0), Vector3(218, 0.032, 32), _asphalt_material)
+	_add_surface("WestAvenueNS", Vector3(-58, 0.116, 0), Vector3(22, 0.031, 390), _asphalt_material)
+	_add_surface("EastAvenueNS", Vector3(58, 0.116, 0), Vector3(22, 0.031, 390), _asphalt_material)
+	_add_surface("NorthAvenueEW", Vector3(0, 0.118, -112), Vector3(205, 0.034, 22), _asphalt_material)
+	_add_surface("SouthAvenueEW", Vector3(0, 0.118, 112), Vector3(205, 0.034, 22), _asphalt_material)
 	_add_surface("CentralPlaza", Vector3(0, 0.12, 0), Vector3(48, 0.04, 48), _plaza_material)
-	_add_surface("WestPlaza", Vector3(-72, 0.12, 62), Vector3(34, 0.04, 34), _plaza_material)
-	_add_surface("EastPlaza", Vector3(72, 0.12, -62), Vector3(34, 0.04, 34), _plaza_material)
+	_add_surface("NorthStagingArea", Vector3(0, 0.12, -160), Vector3(48, 0.04, 42), _plaza_material)
+	_add_surface("SouthStagingArea", Vector3(0, 0.12, 160), Vector3(48, 0.04, 42), _plaza_material)
 
 func _create_playable_blocks() -> void:
 	var placements: Array[Vector3] = []
-	for z in [-88.0, -52.0, -18.0, 22.0, 56.0, 90.0]:
-		placements.append(Vector3(-132.0, 0.1, z))
-		placements.append(Vector3(132.0, 0.1, z))
-	for x in [-108.0, -76.0, -42.0, 42.0, 76.0, 108.0]:
-		placements.append(Vector3(x, 0.1, -108.0))
-		placements.append(Vector3(x, 0.1, 108.0))
+	for z in [-174.0, -138.0, -96.0, -54.0, 54.0, 96.0, 138.0, 174.0]:
+		placements.append(Vector3(-92.0, 0.1, z))
+		placements.append(Vector3(92.0, 0.1, z))
+	for x in [-76.0, -42.0, 42.0, 76.0]:
+		placements.append(Vector3(x, 0.1, -194.0))
+		placements.append(Vector3(x, 0.1, 194.0))
 	placements.append_array([
-		Vector3(-102, 0.1, -74), Vector3(-102, 0.1, 74),
-		Vector3(102, 0.1, -74), Vector3(102, 0.1, 74),
-		Vector3(-44, 0.1, -82), Vector3(44, 0.1, 82),
+		Vector3(-72, 0.1, -78), Vector3(-72, 0.1, 78),
+		Vector3(72, 0.1, -78), Vector3(72, 0.1, 78),
 	])
 	for index in placements.size():
 		var scale_value := 10.0 + float(index % 4) * 1.15
@@ -82,12 +81,12 @@ func _create_playable_blocks() -> void:
 
 func _create_horizon() -> void:
 	var placements: Array[Vector3] = []
-	for z in [-118.0, -78.0, -38.0, 2.0, 42.0, 82.0, 122.0]:
-		placements.append(Vector3(-166.0, 0.0, z))
-		placements.append(Vector3(166.0, 0.0, z))
-	for x in [-130.0, -90.0, -50.0, -10.0, 30.0, 70.0, 110.0]:
-		placements.append(Vector3(x, 0.0, -142.0))
-		placements.append(Vector3(x, 0.0, 142.0))
+	for z in [-205.0, -155.0, -105.0, -55.0, 5.0, 55.0, 105.0, 155.0, 205.0]:
+		placements.append(Vector3(-126.0, 0.0, z))
+		placements.append(Vector3(126.0, 0.0, z))
+	for x in [-95.0, -55.0, -15.0, 25.0, 65.0, 95.0]:
+		placements.append(Vector3(x, 0.0, -236.0))
+		placements.append(Vector3(x, 0.0, 236.0))
 	for index in placements.size():
 		var scale_value := 11.0 + float(index % 5) * 1.5
 		_add_building(HORIZON_BUILDINGS[index % HORIZON_BUILDINGS.size()], placements[index], scale_value, float((index * 90) % 360), false, index + 2)

@@ -126,12 +126,12 @@ value = 0.35
 [sub_resource type="Resource" id="MeleeMax"]
 script = ExtResource("2_upgrade")
 id = &"tree_melee_max"
-title = "Impacto máximo +"
-description = "+0.25 al multiplicador máximo"
+title = "Empuje cinético +"
+description = "+3 de fuerza de retroceso a velocidad máxima"
 category = "Melee"
-stat_id = &"kinetic_max_bonus"
+stat_id = &"melee_knockback"
 operation = "Add"
-value = 0.25
+value = 3.0
 
 [sub_resource type="Resource" id="RangedDamage"]
 script = ExtResource("2_upgrade")
@@ -165,7 +165,7 @@ value = 0.1
 
 [resource]
 script = ExtResource("1_catalog")
-cards = Array[ExtResource("2_upgrade")]([SubResource("CardKinetic"), SubResource("CardEnergy"), SubResource("CardCharge"), SubResource("CardRadius"), SubResource("CardOrbSpeed"), SubResource("CardVelocity"), SubResource("CardDrive")])
+cards = Array[ExtResource("2_upgrade")]([SubResource("CardKinetic"), SubResource("CardRadius"), SubResource("CardVelocity"), SubResource("CardDrive")])
 movement_tree = Array[ExtResource("2_upgrade")]([SubResource("MoveSpeed"), SubResource("MoveAccel"), SubResource("MoveJump")])
 melee_tree = Array[ExtResource("2_upgrade")]([SubResource("MeleeDamage"), SubResource("MeleeRadius"), SubResource("MeleeMax")])
-ranged_tree = Array[ExtResource("2_upgrade")]([SubResource("RangedDamage"), SubResource("RangedCooldown"), SubResource("RangedSize")])
+ranged_tree = Array[ExtResource("2_upgrade")]([])

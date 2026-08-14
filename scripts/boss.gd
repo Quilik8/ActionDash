@@ -14,6 +14,11 @@ signal vulnerability_changed(active: bool)
 @export var weak_point_radius: float = 1.44
 @export var body_hit_radius: float = 4.2
 @export var body_hit_height: float = 4.2
+@export var objective_move_speed: float = 1.6
+@export var objective_attack_radius: float = 9.0
+@export var objective_damage: float = 18.0
+@export var objective_attack_interval: float = 2.0
+@export_range(0.0, 1.0, 0.05) var knockback_resistance: float = 0.2
 
 const DRAGON_SCENE := preload("res://assets/enemies/quaternius_lowpoly_monsters/Dragon.fbx")
 const DEATH_TEXTURE := preload("res://assets/vfx/brackeys/particles/smoke_04_a.png")
@@ -27,6 +32,10 @@ var _animation_player: AnimationPlayer
 var _death_vfx: Sprite3D
 var _hit_timer: float = 0.0
 var _current_animation: StringName
+var _protected_core: ActionDashProtectedCore
+var _objective_attack_timer: float = 0.0
+var _knockback_velocity: Vector3
+var _knockback_remaining: float = 0.0
 
 @onready var _weak_point: Marker3D = $Detection/WeakPointCenter
 @onready var _vulnerability_aura: MeshInstance3D = $VisualRoot/VulnerabilityAura
@@ -50,8 +59,12 @@ func _ready() -> void:
 
 func initialize(home_position: Vector3) -> void:
 	global_position = home_position
+	var objectives := get_tree().get_nodes_in_group("protected_objective")
+	_protected_core = objectives[0] as ActionDashProtectedCore if not objectives.is_empty() else null
 
 func _process(delta: float) -> void:
+	if _update_knockback(delta):
+		return
 	if _defeated:
 		_death_timer = maxf(_death_timer - delta, 0.0)
 		$VisualRoot.scale = $VisualRoot.scale.lerp(Vector3.ONE * 0.7, 1.0 - exp(-4.0 * delta))
@@ -61,6 +74,8 @@ func _process(delta: float) -> void:
 			died.emit()
 		return
 	_hit_timer = maxf(_hit_timer - delta, 0.0)
+	_objective_attack_timer = maxf(_objective_attack_timer - delta, 0.0)
+	_update_objective_assault(delta)
 	if _hit_timer <= 0.0:
 		_play_animation("Flying", 0.16, 0.8)
 	if _vulnerability_remaining <= 0.0:
@@ -105,8 +120,35 @@ func apply_damage(amount: float, damage_type: StringName = &"generic") -> void:
 		_hit_timer = 0.18
 		_play_animation("Hit", 0.04, 1.4)
 
+func apply_knockback(direction: Vector3, force: float, duration: float, vertical_boost: float = 0.0) -> void:
+	var resisted_force := maxf(force, 0.0) * knockback_resistance
+	var flat_direction := Vector3(direction.x, 0.0, direction.z).normalized()
+	_knockback_velocity = flat_direction * resisted_force + Vector3.UP * vertical_boost * knockback_resistance
+	_knockback_remaining = maxf(duration * knockback_resistance, 0.05)
+
 func get_projectile_hit_position() -> Vector3:
 	return global_position + Vector3.UP * body_hit_height
+
+func _update_objective_assault(delta: float) -> void:
+	if not is_instance_valid(_protected_core):
+		return
+	var offset := _protected_core.global_position - global_position
+	offset.y = 0.0
+	if offset.length() > objective_attack_radius:
+		global_position += offset.normalized() * minf(objective_move_speed * delta, offset.length() - objective_attack_radius)
+		$VisualRoot.rotation.y = lerp_angle($VisualRoot.rotation.y, atan2(-offset.x, -offset.z), 1.0 - exp(-5.0 * delta))
+		return
+	if _objective_attack_timer <= 0.0:
+		_objective_attack_timer = objective_attack_interval
+		_protected_core.apply_enemy_damage(objective_damage)
+
+func _update_knockback(delta: float) -> bool:
+	if _knockback_remaining <= 0.0:
+		return false
+	_knockback_remaining = maxf(_knockback_remaining - delta, 0.0)
+	global_position += _knockback_velocity * delta
+	_knockback_velocity = _knockback_velocity.move_toward(Vector3.ZERO, 12.0 * delta)
+	return true
 
 func get_projectile_hit_radius() -> float:
 	return body_hit_radius

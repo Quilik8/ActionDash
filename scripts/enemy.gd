@@ -7,13 +7,13 @@ signal died
 @export_category("Enemy")
 @export var max_health: float = 1.0
 
-@export_category("City assault")
+@export_category("Protected objective assault")
 @export var wander_speed: float = 2.6
 @export var territory_radius: float = 4.0
-@export var decision_interval_min: float = 2.0
-@export var decision_interval_max: float = 4.5
 @export var arrival_distance: float = 0.25
-@export var building_standoff_margin: float = 1.5
+@export var objective_damage: float = 5.0
+@export var objective_attack_interval: float = 1.2
+@export var route_lane_spacing: float = 7.0
 
 @export_category("Performance LOD")
 @export var detailed_visual_distance: float = 34.0
@@ -31,7 +31,6 @@ const DEATH_TEXTURE := preload("res://assets/vfx/brackeys/particles/smoke_04_a.p
 var current_health: float
 var _home_position: Vector3
 var _wander_target: Vector3
-var _decision_timer: float = 0.0
 var _defeated: bool = false
 var _random := RandomNumberGenerator.new()
 var _visual_variant: StringName = &"skeleton"
@@ -46,8 +45,14 @@ var _lod_timer: float = 0.0
 var _logic_accumulator: float = 0.0
 var _detailed_lod_active: bool = true
 var _simplified_lod_active: bool = false
-var _assault_target: Node3D
+var _assault_target: ActionDashProtectedCore
 var _attacking_building: bool = false
+var _route_stage: int = 0
+var _objective_attack_timer: float = 0.0
+var _knockback_velocity: Vector3
+var _knockback_remaining: float = 0.0
+var _knockback_drag: float = 0.0
+var _ground_height: float = 0.0
 
 @onready var _visual_root: Node3D = $VisualRoot
 @onready var _primitive_body: MeshInstance3D = $VisualRoot/Body
@@ -74,11 +79,15 @@ func activate(home_position: Vector3) -> void:
 	_home_position = home_position
 	_wander_target = home_position
 	global_position = home_position
+	_ground_height = home_position.y
 	current_health = max_health
 	_defeated = false
 	_death_timer = 0.0
 	_hit_timer = 0.0
 	_attacking_building = false
+	_knockback_velocity = Vector3.ZERO
+	_knockback_remaining = 0.0
+	_objective_attack_timer = _random.randf_range(0.0, objective_attack_interval)
 	_visual_root.scale = Vector3.ONE
 	_death_vfx.visible = false
 	visible = true
@@ -88,7 +97,7 @@ func activate(home_position: Vector3) -> void:
 	_lod_timer = _random.randf_range(0.0, lod_check_interval)
 	_logic_accumulator = 0.0
 	_update_performance_lod()
-	_choose_building_target()
+	_choose_protected_objective()
 	_play_named_animation(String(VISUALS[_visual_variant][2]), 0.0, 1.0)
 
 func initialize(home_position: Vector3) -> void:
@@ -103,12 +112,15 @@ func deactivate() -> void:
 		_death_vfx.visible = false
 
 func _process(delta: float) -> void:
+	var being_knocked_back := _update_knockback(delta)
 	if _defeated:
 		_death_timer = maxf(_death_timer - delta, 0.0)
 		_visual_root.scale = _visual_root.scale.lerp(Vector3.ONE * 0.55, 1.0 - exp(-7.0 * delta))
 		if _death_timer <= 0.0:
 			died.emit()
 			set_process(false)
+		return
+	if being_knocked_back:
 		return
 	_hit_timer = maxf(_hit_timer - delta, 0.0)
 	_visual_root.scale = _visual_root.scale.lerp(Vector3.ONE, 1.0 - exp(-12.0 * delta))
@@ -121,7 +133,7 @@ func _process(delta: float) -> void:
 		return
 	var logic_delta := _logic_accumulator
 	_logic_accumulator = 0.0
-	_decision_timer -= logic_delta
+	_objective_attack_timer = maxf(_objective_attack_timer - logic_delta, 0.0)
 	var offset := _wander_target - global_position
 	offset.y = 0.0
 	if offset.length() > arrival_distance:
@@ -129,12 +141,13 @@ func _process(delta: float) -> void:
 		global_position += offset.normalized() * minf(wander_speed * logic_delta, offset.length())
 		_visual_root.rotation.y = lerp_angle(_visual_root.rotation.y, atan2(-offset.x, -offset.z), 1.0 - exp(-7.0 * logic_delta))
 		_play_named_animation(String(VISUALS[_visual_variant][3]), 0.18, 1.0)
-	elif _decision_timer <= 0.0:
-		_choose_building_target()
+	elif _route_stage < 2:
+		_advance_objective_route()
 	else:
 		_attacking_building = true
 		_face_assault_target(logic_delta)
 		_play_building_attack()
+		_try_damage_objective()
 
 func get_home_position() -> Vector3:
 	return _home_position
@@ -143,6 +156,9 @@ func is_using_simplified_lod() -> bool:
 	return visible and _simplified_lod_active
 
 func is_attacking_building() -> bool:
+	return is_attacking_objective()
+
+func is_attacking_objective() -> bool:
 	return visible and _attacking_building and is_instance_valid(_assault_target)
 
 func get_simplified_lod_transform() -> Transform3D:
@@ -163,6 +179,15 @@ func apply_damage(amount: float, _damage_type: StringName = &"generic") -> void:
 		_hit_timer = 0.1
 		_visual_root.scale = Vector3.ONE * 1.12
 
+func apply_knockback(direction: Vector3, force: float, duration: float, vertical_boost: float = 0.0) -> void:
+	var flat_direction := Vector3(direction.x, 0.0, direction.z).normalized()
+	if flat_direction.length_squared() < 0.01:
+		flat_direction = Vector3.FORWARD
+	_knockback_velocity = flat_direction * maxf(force, 0.0) + Vector3.UP * maxf(vertical_boost, 0.0)
+	_knockback_remaining = maxf(duration, 0.05)
+	_knockback_drag = maxf(force / _knockback_remaining, 0.0)
+	_attacking_building = false
+
 func get_projectile_hit_position() -> Vector3:
 	var height := 1.15 if _visual_variant == &"spider" else (0.65 if _visual_variant == &"slime" else 0.95)
 	return global_position + Vector3.UP * height
@@ -170,39 +195,44 @@ func get_projectile_hit_position() -> Vector3:
 func get_projectile_hit_radius() -> float:
 	return 1.35 if _visual_variant == &"spider" else (0.75 if _visual_variant == &"slime" else 0.82)
 
-func _choose_building_target() -> void:
-	var buildings := get_tree().get_nodes_in_group("city_building_colliders")
-	if buildings.is_empty():
+func _choose_protected_objective() -> void:
+	var objectives := get_tree().get_nodes_in_group("protected_objective")
+	if objectives.is_empty():
 		var angle := _random.randf_range(0.0, TAU)
 		var distance := sqrt(_random.randf()) * territory_radius
 		_wander_target = _home_position + Vector3(cos(angle), 0.0, sin(angle)) * distance
-		_schedule_next_decision()
 		return
-	var closest_candidates: Array[Node3D] = []
-	var closest_distances: Array[float] = []
-	for node in buildings:
-		var building := node as Node3D
-		var distance_squared := global_position.distance_squared_to(building.global_position)
-		var insert_at := closest_distances.bsearch(distance_squared)
-		closest_distances.insert(insert_at, distance_squared)
-		closest_candidates.insert(insert_at, building)
-		if closest_candidates.size() > 4:
-			closest_candidates.pop_back()
-			closest_distances.pop_back()
-	_assault_target = closest_candidates[_random.randi_range(0, closest_candidates.size() - 1)]
-	var outward := global_position - _assault_target.global_position
-	outward.y = 0.0
-	if outward.length_squared() < 0.01:
-		var angle := _random.randf_range(0.0, TAU)
-		outward = Vector3(cos(angle), 0.0, sin(angle))
-	else:
-		outward = outward.normalized()
-	var collision_size: Vector3 = _assault_target.get_meta("collision_size", Vector3(8.0, 8.0, 8.0))
-	var building_radius := maxf(collision_size.x, collision_size.z) * 0.55 + building_standoff_margin
-	_wander_target = _assault_target.global_position + outward * building_radius
-	_wander_target.y = _home_position.y
+	_assault_target = objectives[0] as ActionDashProtectedCore
+	var toward_core := _assault_target.global_position - _home_position
+	toward_core.y = 0.0
+	var perpendicular := Vector3(-toward_core.z, 0.0, toward_core.x).normalized()
+	var group_index := int(get_meta("spawn_group", 0))
+	var lane_offset := float((group_index % 3) - 1) * route_lane_spacing
+	_wander_target = _home_position.lerp(_assault_target.global_position, 0.48) + perpendicular * lane_offset
+	_wander_target.y = _ground_height
+	_route_stage = 0
 	_attacking_building = false
-	_schedule_next_decision()
+
+func _advance_objective_route() -> void:
+	if not is_instance_valid(_assault_target):
+		_choose_protected_objective()
+		return
+	if _route_stage == 0:
+		var outward := global_position - _assault_target.global_position
+		outward.y = 0.0
+		if outward.length_squared() < 0.01:
+			outward = Vector3.FORWARD
+		_wander_target = _assault_target.global_position + outward.normalized() * (_assault_target.get_approach_radius() + 1.0)
+		_wander_target.y = _ground_height
+		_route_stage = 1
+	else:
+		_route_stage = 2
+
+func _try_damage_objective() -> void:
+	if _objective_attack_timer > 0.0 or not is_instance_valid(_assault_target):
+		return
+	_objective_attack_timer = objective_attack_interval * _random.randf_range(0.9, 1.1)
+	_assault_target.apply_enemy_damage(objective_damage)
 
 func _face_assault_target(delta: float) -> void:
 	if not is_instance_valid(_assault_target):
@@ -218,8 +248,20 @@ func _play_building_attack() -> void:
 	else:
 		_play_named_animation(String(VISUALS[_visual_variant][2]), 0.18, 1.0)
 
-func _schedule_next_decision() -> void:
-	_decision_timer = _random.randf_range(decision_interval_min, decision_interval_max)
+func _update_knockback(delta: float) -> bool:
+	if _knockback_remaining <= 0.0:
+		return false
+	_knockback_remaining = maxf(_knockback_remaining - delta, 0.0)
+	global_position += _knockback_velocity * delta
+	_knockback_velocity.y -= 13.0 * delta
+	var flat_velocity := Vector3(_knockback_velocity.x, 0.0, _knockback_velocity.z)
+	flat_velocity = flat_velocity.move_toward(Vector3.ZERO, _knockback_drag * delta)
+	_knockback_velocity.x = flat_velocity.x
+	_knockback_velocity.z = flat_velocity.z
+	if global_position.y < _ground_height:
+		global_position = Vector3(global_position.x, _ground_height, global_position.z)
+		_knockback_velocity.y = 0.0
+	return true
 
 func _update_performance_lod() -> void:
 	if not is_instance_valid(_camera):
