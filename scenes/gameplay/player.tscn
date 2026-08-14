@@ -29,18 +29,6 @@ material = SubResource("MarkerMaterial")
 radius = 0.12
 height = 0.24
 
-[sub_resource type="StandardMaterial3D" id="KineticMaterial"]
-transparency = 1
-albedo_color = Color(0.1, 0.85, 1, 0.18)
-emission_enabled = true
-emission = Color(0.05, 0.55, 0.9, 1)
-shading_mode = 0
-
-[sub_resource type="SphereMesh" id="KineticMesh"]
-material = SubResource("KineticMaterial")
-radius = 0.72
-height = 1.44
-
 [sub_resource type="StandardMaterial3D" id="AttackMaterial"]
 transparency = 1
 albedo_color = Color(0.35, 0.95, 1, 0.35)
@@ -52,18 +40,6 @@ shading_mode = 0
 material = SubResource("AttackMaterial")
 inner_radius = 0.72
 outer_radius = 0.9
-
-[sub_resource type="StandardMaterial3D" id="LandingMaterial"]
-transparency = 1
-albedo_color = Color(0.95, 0.68, 0.12, 0.34)
-emission_enabled = true
-emission = Color(0.8, 0.3, 0.03, 1)
-shading_mode = 0
-
-[sub_resource type="SphereMesh" id="LandingMesh"]
-material = SubResource("LandingMaterial")
-radius = 0.55
-height = 1.1
 
 [sub_resource type="StandardMaterial3D" id="EnergyMaterial"]
 transparency = 1
@@ -110,26 +86,10 @@ mesh = SubResource("PlayerMesh")
 
 [node name="VFX" type="Node3D" parent="VisualRoot"]
 
-[node name="KineticAura" type="MeshInstance3D" parent="VisualRoot/VFX"]
-position = Vector3(0, 0.9, 0)
-mesh = SubResource("KineticMesh")
-
 [node name="ProximityFlash" type="MeshInstance3D" parent="VisualRoot/VFX"]
 position = Vector3(0, 1.1, 0)
 rotation_degrees = Vector3(90, 0, 0)
 mesh = SubResource("AttackRingMesh")
-
-[node name="KineticWave" type="MeshInstance3D" parent="VisualRoot/VFX"]
-position = Vector3(0, 1.2, 0)
-rotation_degrees = Vector3(90, 0, 0)
-mesh = SubResource("AttackRingMesh")
-
-[node name="LandingImpact" type="MeshInstance3D" parent="VisualRoot/VFX"]
-position = Vector3(0, 1.05, 0)
-mesh = SubResource("LandingMesh")
-
-[node name="MuzzleFlash" type="MeshInstance3D" parent="VisualRoot/VFX"]
-mesh = SubResource("EnergyFlashMesh")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 position = Vector3(0, 0.9, 0)
@@ -154,13 +114,25 @@ damage_radius = 5.2
 melee_cooldown = 0.28
 front_dot_threshold = -0.15
 close_assist_radius = 2.2
+ground_vertical_reach = 2.0
+aerial_horizontal_reach = 7.2
+aerial_vertical_reach = 6.5
+aerial_front_dot_threshold = -0.45
+aerial_close_assist_radius = 3.0
 maximum_targets = 1
 base_knockback_force = 8.0
 maximum_speed_knockback_bonus = 20.0
 knockback_duration = 0.52
 knockback_vertical_boost = 3.2
+lethal_knockback_force = 15.0
+lethal_speed_knockback_bonus = 30.0
+lethal_knockback_duration = 0.75
+lethal_knockback_vertical_boost = 6.0
 landing_radius = 5.0
 landing_knockback_force = 9.0
+landing_lethal_knockback_force = 14.0
+landing_lethal_knockback_duration = 0.7
+landing_lethal_vertical_boost = 4.5
 
 [node name="RangedPower" type="Node" parent="Gameplay"]
 script = ExtResource("5_power")
@@ -170,8 +142,8 @@ damage = 4.0
 projectile_count = 1
 impact_behavior = &"standard"
 projectile_speed = 52.0
-projectile_size = 1.6
-projectile_contact_margin = 0.2
+projectile_size = 1.1
+projectile_contact_margin = 0.14
 projectile_lifetime = 1.8
 
 [node name="Debug" type="Node3D" parent="."]

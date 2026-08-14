@@ -65,11 +65,7 @@ func _process(delta: float) -> void:
 func _force_stable_player_effects() -> void:
 	var vfx := _player.get_node("VisualRoot/VFX")
 	var stable_scales := {
-		"KineticAura": Vector3.ONE,
 		"ProximityFlash": Vector3.ONE * 1.45,
-		"KineticWave": Vector3.ONE * 1.25,
-		"LandingImpact": Vector3.ONE * 1.5,
-		"MuzzleFlash": Vector3.ONE * 0.45,
 	}
 	for node_name in stable_scales:
 		var effect := vfx.get_node(NodePath(node_name)) as MeshInstance3D
@@ -80,10 +76,6 @@ func _force_stable_player_effects() -> void:
 	if slash != null:
 		slash.visible = true
 		slash.scale = Vector3.ONE * 1.8
-	var landing_sprite := vfx.get_node_or_null("LandingRing") as Sprite3D
-	if landing_sprite != null:
-		landing_sprite.visible = true
-		landing_sprite.scale = Vector3.ONE * 1.5
 
 func _force_enemy_arrow() -> void:
 	var arrow := _player.get_node("VisualRoot/VFX/EnemyDirectionArrow") as Node3D
@@ -243,12 +235,9 @@ func _get_player_effect_state() -> Dictionary:
 		if node is ActionDashProjectile:
 			projectile_count += 1
 	return {
-		"kinetic_aura": (vfx.get_node("KineticAura") as MeshInstance3D).visible,
 		"speed_particles": (vfx.get_node("SuperSpeedParticles") as GPUParticles3D).emitting,
 		"melee_flash": (vfx.get_node("ProximityFlash") as MeshInstance3D).visible,
-		"kinetic_wave": (vfx.get_node("KineticWave") as MeshInstance3D).visible,
-		"landing": (vfx.get_node("LandingImpact") as MeshInstance3D).visible,
-		"muzzle": (vfx.get_node("MuzzleFlash") as MeshInstance3D).visible,
+		"landing_debris": (vfx.get_node("LandingDebrisParticles") as GPUParticles3D).emitting,
 		"enemy_arrow": (vfx.get_node("EnemyDirectionArrow") as Node3D).visible,
 		"energy_spheres": projectile_count,
 	}

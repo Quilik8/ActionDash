@@ -27,6 +27,7 @@ const VISUALS := {
 	&"spider": [preload("res://assets/enemies/quaternius_easy_animated/Spider.fbx"), 0.65, "Idle", "Walk", "Death", 4.0, 0.0],
 }
 const DEATH_TEXTURE := preload("res://assets/vfx/brackeys/particles/smoke_04_a.png")
+const HIT_TEXTURE := preload("res://assets/vfx/brackeys/particles/spark_03_a.png")
 
 var current_health: float
 var _home_position: Vector3
@@ -40,6 +41,7 @@ var _current_animation: StringName
 var _death_timer: float = 0.0
 var _hit_timer: float = 0.0
 var _death_vfx: Sprite3D
+var _hit_vfx: Sprite3D
 var _camera: Camera3D
 var _lod_timer: float = 0.0
 var _logic_accumulator: float = 0.0
@@ -61,6 +63,7 @@ func _ready() -> void:
 	_random.seed = hash(str(get_instance_id()))
 	_primitive_body.visible = false
 	_create_death_vfx()
+	_create_hit_vfx()
 	deactivate()
 
 func configure_visual(variant: StringName) -> void:
@@ -89,7 +92,10 @@ func activate(home_position: Vector3) -> void:
 	_knockback_remaining = 0.0
 	_objective_attack_timer = _random.randf_range(0.0, objective_attack_interval)
 	_visual_root.scale = Vector3.ONE
+	_visual_root.rotation = Vector3.ZERO
+	_current_animation = &""
 	_death_vfx.visible = false
+	_hit_vfx.visible = false
 	visible = true
 	add_to_group("enemies")
 	add_to_group("ground_enemies")
@@ -110,11 +116,17 @@ func deactivate() -> void:
 	remove_from_group("ground_enemies")
 	if is_instance_valid(_death_vfx):
 		_death_vfx.visible = false
+	if is_instance_valid(_hit_vfx):
+		_hit_vfx.visible = false
 
 func _process(delta: float) -> void:
+	_hit_timer = maxf(_hit_timer - delta, 0.0)
+	if _hit_timer <= 0.0 and is_instance_valid(_hit_vfx):
+		_hit_vfx.visible = false
 	var being_knocked_back := _update_knockback(delta)
 	if _defeated:
 		_death_timer = maxf(_death_timer - delta, 0.0)
+		_visual_root.rotation.z += delta * 7.0
 		_visual_root.scale = _visual_root.scale.lerp(Vector3.ONE * 0.55, 1.0 - exp(-7.0 * delta))
 		if _death_timer <= 0.0:
 			died.emit()
@@ -122,7 +134,6 @@ func _process(delta: float) -> void:
 		return
 	if being_knocked_back:
 		return
-	_hit_timer = maxf(_hit_timer - delta, 0.0)
 	_visual_root.scale = _visual_root.scale.lerp(Vector3.ONE, 1.0 - exp(-12.0 * delta))
 	_lod_timer -= delta
 	if _lod_timer <= 0.0:
@@ -171,12 +182,16 @@ func apply_damage(amount: float, _damage_type: StringName = &"generic") -> void:
 	damaged.emit(amount, maxf(current_health, 0.0))
 	if current_health <= 0.0:
 		_defeated = true
-		_death_timer = 0.52
+		remove_from_group("enemies")
+		remove_from_group("ground_enemies")
+		_death_timer = 0.58
 		_death_vfx.visible = true
 		_death_vfx.scale = Vector3.ONE * (1.7 if _visual_variant == &"spider" else 1.0)
 		_play_named_animation(String(VISUALS[_visual_variant][4]), 0.03, 2.0)
 	else:
-		_hit_timer = 0.1
+		_hit_timer = 0.14
+		_hit_vfx.visible = true
+		_hit_vfx.scale = Vector3.ONE * 0.75
 		_visual_root.scale = Vector3.ONE * 1.12
 
 func apply_knockback(direction: Vector3, force: float, duration: float, vertical_boost: float = 0.0) -> void:
@@ -187,6 +202,13 @@ func apply_knockback(direction: Vector3, force: float, duration: float, vertical
 	_knockback_remaining = maxf(duration, 0.05)
 	_knockback_drag = maxf(force / _knockback_remaining, 0.0)
 	_attacking_building = false
+
+func apply_lethal_knockback(direction: Vector3, force: float, duration: float, vertical_boost: float = 0.0) -> void:
+	apply_knockback(direction, force, duration, vertical_boost)
+	_death_timer = maxf(_death_timer, duration + 0.12)
+
+func is_defeated() -> bool:
+	return _defeated
 
 func get_projectile_hit_position() -> Vector3:
 	var height := 1.15 if _visual_variant == &"spider" else (0.65 if _visual_variant == &"slime" else 0.95)
@@ -330,3 +352,14 @@ func _create_death_vfx() -> void:
 	_death_vfx.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_death_vfx.position.y = 0.9
 	_visual_root.add_child(_death_vfx)
+
+func _create_hit_vfx() -> void:
+	_hit_vfx = Sprite3D.new()
+	_hit_vfx.name = "HitSpark"
+	_hit_vfx.texture = HIT_TEXTURE
+	_hit_vfx.pixel_size = 0.009
+	_hit_vfx.modulate = Color(1.0, 0.82, 0.3, 0.9)
+	_hit_vfx.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_hit_vfx.position.y = 0.9
+	_hit_vfx.visible = false
+	_visual_root.add_child(_hit_vfx)

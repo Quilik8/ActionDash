@@ -27,6 +27,9 @@ var _orbit_pitch: float = 0.0
 var _current_distance_multiplier: float = 1.0
 var _orbiting: bool = false
 var _smoothed_look_position: Vector3
+var _shake_remaining: float = 0.0
+var _shake_duration: float = 0.0
+var _shake_strength: float = 0.0
 
 func _ready() -> void:
 	process_priority = 1
@@ -81,6 +84,28 @@ func _process(delta: float) -> void:
 	var look_blend := 1.0 - exp(-look_smoothing * delta)
 	_smoothed_look_position = _smoothed_look_position.lerp(desired_look_position, look_blend)
 	look_at(_smoothed_look_position, Vector3.UP)
+	_update_shake(delta)
+
+func add_shake(strength: float, duration: float) -> void:
+	_shake_strength = maxf(_shake_strength, maxf(strength, 0.0))
+	_shake_duration = maxf(_shake_duration, maxf(duration, 0.0))
+	_shake_remaining = maxf(_shake_remaining, _shake_duration)
+
+func _update_shake(delta: float) -> void:
+	if _shake_remaining <= 0.0:
+		_camera.position = Vector3.ZERO
+		_camera.rotation = Vector3.ZERO
+		_shake_strength = 0.0
+		return
+	_shake_remaining = maxf(_shake_remaining - delta, 0.0)
+	var fade := _shake_remaining / maxf(_shake_duration, 0.001)
+	var offset := Vector3(
+		sin(Time.get_ticks_msec() * 0.071) * 0.8,
+		cos(Time.get_ticks_msec() * 0.097) * 0.45,
+		0.0
+	) * _shake_strength * fade
+	_camera.position = offset
+	_camera.rotation = Vector3(0.0, 0.0, sin(Time.get_ticks_msec() * 0.083) * 0.012 * fade)
 
 func _get_collision_safe_position(look_origin: Vector3, desired_position: Vector3) -> Vector3:
 	var query := PhysicsRayQueryParameters3D.create(look_origin, desired_position, collision_mask)

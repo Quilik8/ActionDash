@@ -49,7 +49,7 @@ func _update_text() -> void:
 	var speed_detail := "Velocidad: %.1f   Normal fija: %.1f" % [current_speed, normal_speed]
 	if movement_mode == "SUPER":
 		speed_detail = "Velocidad: %.1f   Máxima SUPER: %.1f" % [current_speed, super_max_speed]
-	text = "ActionDash 3D Defense\nWASF: movimiento | Q: SUPER ON/OFF | MMB: orbitar | Space: salto | Clic: melee\nFPS: %d (%.2f ms)   Modo: %s   SUPER: %s\n%s\nKnockback melee: %.1f   Radio melee: %.1f   Landing: %.1f\nNúcleo: %d / %d   Enemigos activos: %d   Restantes: %d\nCinético máximo: %s" % [
+	text = "ActionDash 3D Defense\nWASF: movimiento | Q: SUPER ON/OFF | MMB: orbitar | Space: salto | LMB: melee | RMB: ranged\nFPS: %d (%.2f ms)   Modo: %s   SUPER: %s\n%s\nKnockback melee: %.1f   Radio melee: %.1f   Landing: %.1f\nNúcleo: %d / %d   Enemigos activos: %d   Restantes: %d\nCinético máximo: %s" % [
 		Engine.get_frames_per_second(),
 		frame_ms,
 		movement_mode,

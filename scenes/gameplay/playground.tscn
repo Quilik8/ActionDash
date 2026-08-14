@@ -107,7 +107,7 @@ shape = SubResource("BoxShape3D_floor")
 collision_layer = 1
 collision_mask = 1
 script = ExtResource("15_core")
-maximum_integrity = 1000.0
+maximum_integrity = 4000.0
 approach_radius = 7.0
 
 [node name="Base" type="MeshInstance3D" parent="ProtectedCore"]

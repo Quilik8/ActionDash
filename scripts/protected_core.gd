@@ -4,7 +4,7 @@ extends StaticBody3D
 signal integrity_changed(current: float, maximum: float)
 signal depleted
 
-@export var maximum_integrity: float = 1000.0
+@export var maximum_integrity: float = 4000.0
 @export var approach_radius: float = 7.0
 
 var _integrity: float

@@ -20,7 +20,8 @@ Controles del MVP:
 - `S`: retroceder
 - `F`: moverse a la derecha
 - `Space`: saltar
-- clic izquierdo: disparar hacia el cursor
+- clic izquierdo (LMB): ataque melee
+- clic derecho (RMB): esfera de energía hacia el cursor
 
 El renderer usa `gl_compatibility` para mantener bajo el coste de ejecucion en
 hardware antiguo o de gama media-baja.

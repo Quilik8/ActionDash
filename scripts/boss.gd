@@ -126,6 +126,13 @@ func apply_knockback(direction: Vector3, force: float, duration: float, vertical
 	_knockback_velocity = flat_direction * resisted_force + Vector3.UP * vertical_boost * knockback_resistance
 	_knockback_remaining = maxf(duration * knockback_resistance, 0.05)
 
+func apply_lethal_knockback(direction: Vector3, force: float, duration: float, vertical_boost: float = 0.0) -> void:
+	apply_knockback(direction, force, duration, vertical_boost)
+	_death_timer = maxf(_death_timer, duration + 0.12)
+
+func is_defeated() -> bool:
+	return _defeated
+
 func get_projectile_hit_position() -> Vector3:
 	return global_position + Vector3.UP * body_hit_height
 

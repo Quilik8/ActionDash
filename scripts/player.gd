@@ -55,7 +55,6 @@ func _ready() -> void:
 	_aim_marker.visible = show_aim_marker
 	_proximity_damage.melee_hit.connect(_on_melee_hit)
 	_proximity_damage.landing_impact.connect(_on_landing_impact)
-	_ranged_power.set_physics_process(false)
 	_capture_base_run_stats()
 
 func _process(_delta: float) -> void:
@@ -79,8 +78,10 @@ func _physics_process(delta: float) -> void:
 	_update_kinetic_state()
 	_check_fall_recovery()
 
-	if Input.is_action_just_pressed("shoot"):
+	if Input.is_action_just_pressed("melee_attack"):
 		_proximity_damage.try_melee_attack(self, get_melee_attack_direction())
+	if Input.is_action_just_pressed("ranged_attack"):
+		_fire_energy_projectile()
 
 func _check_fall_recovery() -> void:
 	if global_position.y < fall_limit_y:
@@ -249,7 +250,10 @@ func _spawn_energy_projectile_toward(aim_position: Vector3) -> bool:
 	if not is_energy_ready():
 		return false
 	var origin := _attack_origin.global_position
-	return _ranged_power.activate(get_tree().current_scene, origin, aim_position)
+	var world := get_tree().current_scene
+	if world == null:
+		world = get_parent()
+	return _ranged_power.activate(world, origin, aim_position)
 
 func set_ranged_power(power: ActionDashRangedPower) -> void:
 	if power == null:

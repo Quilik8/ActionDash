@@ -10,7 +10,11 @@ signal landing_impact(position: Vector3, targets_hit: int, damage_multiplier: fl
 @export var melee_cooldown: float = 0.28
 @export_range(-1.0, 1.0, 0.05) var front_dot_threshold: float = -0.15
 @export var close_assist_radius: float = 2.2
-@export var maximum_vertical_reach: float = 4.5
+@export var ground_vertical_reach: float = 2.0
+@export var aerial_horizontal_reach: float = 7.2
+@export var aerial_vertical_reach: float = 6.5
+@export_range(-1.0, 1.0, 0.05) var aerial_front_dot_threshold: float = -0.45
+@export var aerial_close_assist_radius: float = 3.0
 @export_range(1, 8, 1) var maximum_targets: int = 1
 
 @export_category("Melee damage scaling")
@@ -25,12 +29,22 @@ signal landing_impact(position: Vector3, targets_hit: int, damage_multiplier: fl
 @export var knockback_duration: float = 0.52
 @export var knockback_vertical_boost: float = 3.2
 
+@export_category("Melee lethal knockback")
+@export var lethal_knockback_force: float = 15.0
+@export var lethal_speed_knockback_bonus: float = 30.0
+@export_range(0.25, 3.0, 0.05) var lethal_knockback_speed_exponent: float = 1.1
+@export var lethal_knockback_duration: float = 0.75
+@export var lethal_knockback_vertical_boost: float = 6.0
+
 @export_category("Landing attack")
 @export var landing_radius: float = 5.0
 @export var landing_damage: float = 1.4
 @export var landing_knockback_force: float = 9.0
 @export var landing_knockback_duration: float = 0.42
 @export var landing_vertical_boost: float = 2.2
+@export var landing_lethal_knockback_force: float = 14.0
+@export var landing_lethal_knockback_duration: float = 0.7
+@export var landing_lethal_vertical_boost: float = 4.5
 @export var landing_minimum_air_time: float = 0.25
 @export var landing_minimum_fall_speed: float = 2.0
 @export var landing_cooldown: float = 0.6
@@ -48,7 +62,8 @@ func try_melee_attack(player: ActionDashPlayer, attack_direction: Vector3) -> bo
 	var flat_direction := Vector3(attack_direction.x, 0.0, attack_direction.z).normalized()
 	if flat_direction.length_squared() < 0.01:
 		flat_direction = Vector3.FORWARD
-	var targets := _select_melee_targets(player.global_position, flat_direction)
+	var airborne := not player.is_on_floor()
+	var targets := _select_melee_targets(player.global_position, flat_direction, airborne)
 	if targets.is_empty():
 		return false
 	var speed := player.get_horizontal_speed()
@@ -60,7 +75,17 @@ func try_melee_attack(player: ActionDashPlayer, attack_direction: Vector3) -> bo
 		radial.y = 0.0
 		var knockback_direction := (flat_direction * 0.68 + radial.normalized() * 0.32).normalized()
 		enemy.apply_damage(base_damage * damage_multiplier, &"melee")
-		_apply_knockback(enemy, knockback_direction, knockback_force, knockback_duration, knockback_vertical_boost)
+		if _is_defeated(enemy):
+			_apply_knockback(
+				enemy,
+				knockback_direction,
+				get_lethal_knockback_force(speed, player.normal_speed, player.max_speed),
+				lethal_knockback_duration,
+				lethal_knockback_vertical_boost,
+				true
+			)
+		else:
+			_apply_knockback(enemy, knockback_direction, knockback_force, knockback_duration, knockback_vertical_boost)
 	_melee_timer = melee_cooldown
 	melee_hit.emit(player.global_position, targets.size(), damage_multiplier, damage_radius, knockback_force)
 	return true
@@ -77,6 +102,11 @@ func get_knockback_force(horizontal_speed: float, normal_speed: float, configure
 	var speed_range := maxf(configured_max_speed - normal_speed, 0.001)
 	var progress := clampf((horizontal_speed - normal_speed) / speed_range, 0.0, 1.0)
 	return base_knockback_force + pow(progress, knockback_speed_exponent) * maximum_speed_knockback_bonus
+
+func get_lethal_knockback_force(horizontal_speed: float, normal_speed: float, configured_max_speed: float) -> float:
+	var speed_range := maxf(configured_max_speed - normal_speed, 0.001)
+	var progress := clampf((horizontal_speed - normal_speed) / speed_range, 0.0, 1.0)
+	return lethal_knockback_force + pow(progress, lethal_knockback_speed_exponent) * lethal_speed_knockback_bonus
 
 func get_effective_radius(_horizontal_speed: float, _configured_max_speed: float) -> float:
 	return damage_radius
@@ -113,12 +143,15 @@ func try_landing_attack(
 		if direction.length_squared() < 0.01:
 			direction = Vector3.FORWARD
 		enemy.apply_damage(landing_damage, &"landing")
-		_apply_knockback(enemy, direction.normalized(), landing_knockback_force, landing_knockback_duration, landing_vertical_boost)
+		if _is_defeated(enemy):
+			_apply_knockback(enemy, direction.normalized(), landing_lethal_knockback_force, landing_lethal_knockback_duration, landing_lethal_vertical_boost, true)
+		else:
+			_apply_knockback(enemy, direction.normalized(), landing_knockback_force, landing_knockback_duration, landing_vertical_boost)
 	_landing_timer = landing_cooldown
 	landing_impact.emit(world_position, targets.size(), 1.0, landing_radius)
 	return true
 
-func _select_melee_targets(world_position: Vector3, attack_direction: Vector3) -> Array[Node]:
+func _select_melee_targets(world_position: Vector3, attack_direction: Vector3, airborne: bool) -> Array[Node]:
 	var scored_targets: Array[Dictionary] = []
 	for enemy in get_tree().get_nodes_in_group("enemies"):
 		if not is_instance_valid(enemy) or not enemy.has_method("apply_damage"):
@@ -127,13 +160,20 @@ func _select_melee_targets(world_position: Vector3, attack_direction: Vector3) -
 		var vertical_distance := absf(offset.y)
 		offset.y = 0.0
 		var distance := offset.length()
-		if distance > damage_radius or vertical_distance > maximum_vertical_reach:
+		var horizontal_limit := aerial_horizontal_reach if airborne else damage_radius
+		var vertical_limit := aerial_vertical_reach if airborne else ground_vertical_reach
+		if distance > horizontal_limit or vertical_distance > vertical_limit:
 			continue
 		var direction_to_enemy := offset.normalized() if distance > 0.01 else attack_direction
 		var alignment := attack_direction.dot(direction_to_enemy)
-		if alignment < front_dot_threshold and distance > close_assist_radius:
+		var alignment_limit := aerial_front_dot_threshold if airborne else front_dot_threshold
+		var assist_distance := aerial_close_assist_radius if airborne else close_assist_radius
+		if alignment < alignment_limit and distance > assist_distance:
 			continue
-		scored_targets.append({"enemy": enemy, "score": distance - alignment * 2.0})
+		var score := distance + vertical_distance * 0.6 - alignment * 2.4
+		# Airborne attacks give flying targets the same fair volume, while the
+		# score still prefers the closest target in front of the player.
+		scored_targets.append({"enemy": enemy, "score": score})
 	scored_targets.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["score"]) < float(b["score"]))
 	var result: Array[Node] = []
 	for index in mini(maximum_targets, scored_targets.size()):
@@ -144,13 +184,21 @@ func _get_landing_targets(world_position: Vector3) -> Array[Node]:
 	var result: Array[Node] = []
 	var radius_squared := landing_radius * landing_radius
 	for enemy in get_tree().get_nodes_in_group("enemies"):
-		if not is_instance_valid(enemy) or enemy.is_in_group("flying_enemies") or not enemy.has_method("apply_damage"):
+		if not is_instance_valid(enemy) or not enemy.has_method("apply_damage"):
 			continue
 		var offset: Vector3 = enemy.get_projectile_hit_position() - world_position
 		if offset.length_squared() <= radius_squared:
 			result.append(enemy)
 	return result
 
-func _apply_knockback(enemy: Node, direction: Vector3, force: float, duration: float, vertical_boost: float) -> void:
-	if enemy.has_method("apply_knockback"):
+func _apply_knockback(enemy: Node, direction: Vector3, force: float, duration: float, vertical_boost: float, lethal: bool = false) -> void:
+	if lethal and enemy.has_method("apply_lethal_knockback"):
+		enemy.apply_lethal_knockback(direction, force, duration, vertical_boost)
+	elif enemy.has_method("apply_knockback"):
 		enemy.apply_knockback(direction, force, duration, vertical_boost)
+
+func _is_defeated(enemy: Node) -> bool:
+	if enemy.has_method("is_defeated"):
+		return enemy.is_defeated()
+	var health = enemy.get("current_health")
+	return health != null and float(health) <= 0.0

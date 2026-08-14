@@ -5,11 +5,10 @@ extends Node3D
 
 const HUMANOID_SCENE := preload("res://assets/animations/quaternius_ual1/UAL1_Standard.glb")
 const SLASH_TEXTURE := preload("res://assets/vfx/brackeys/particles/slash_02_a.png")
-const CIRCLE_TEXTURE := preload("res://assets/vfx/brackeys/particles/circle_03_a.png")
 const TRACE_TEXTURE := preload("res://assets/vfx/brackeys/particles/trace_03_a.png")
+const SPARK_TEXTURE := preload("res://assets/vfx/brackeys/particles/spark_03_a.png")
 
 var _proximity_timer: float = 0.0
-var _landing_timer: float = 0.0
 var _action_timer: float = 0.0
 var _landing_animation_timer: float = 0.0
 var _was_on_floor: bool = true
@@ -17,23 +16,18 @@ var _current_animation: StringName
 var _humanoid: Node3D
 var _animation_player: AnimationPlayer
 var _slash_sprite: Sprite3D
-var _landing_sprite: Sprite3D
 var _speed_particles: GPUParticles3D
+var _landing_debris: GPUParticles3D
 var _enemy_arrow: Node3D
 var _arrow_update_timer: float = 0.0
 var _arrow_bob_time: float = 0.0
 
 @onready var _body: MeshInstance3D = $Model/Body
-@onready var _kinetic_aura: MeshInstance3D = $VFX/KineticAura
 @onready var _proximity_flash: MeshInstance3D = $VFX/ProximityFlash
-@onready var _wave_flash: MeshInstance3D = $VFX/KineticWave
-@onready var _landing_flash: MeshInstance3D = $VFX/LandingImpact
-@onready var _muzzle_flash: MeshInstance3D = $VFX/MuzzleFlash
 
 func _ready() -> void:
 	var player := get_parent() as ActionDashPlayer
 	player.melee_attack.connect(_on_melee_attack)
-	player.kinetic_state_changed.connect(_on_kinetic_state_changed)
 	player.landing_attack.connect(_on_landing_attack)
 	_install_humanoid()
 	_create_asset_vfx()
@@ -48,7 +42,6 @@ func _process(delta: float) -> void:
 	_update_super_feedback(player)
 	_update_enemy_arrow(player, delta)
 	_update_effect(_proximity_flash, "_proximity_timer", delta, 8.0)
-	_update_effect(_landing_flash, "_landing_timer", delta, 8.5)
 
 func _on_melee_attack(_position: Vector3, _targets_hit: int, _damage_multiplier: float, effective_radius: float, _knockback_force: float) -> void:
 	if not enable_temporary_vfx:
@@ -59,16 +52,14 @@ func _on_melee_attack(_position: Vector3, _targets_hit: int, _damage_multiplier:
 	_slash_sprite.scale = Vector3.ONE * clampf(effective_radius * 0.25, 1.3, 2.8)
 	_play_action(&"Punch_Cross", 0.34)
 
-func _on_kinetic_state_changed(active: bool) -> void:
-	_kinetic_aura.visible = enable_temporary_vfx and active
-
 func _on_landing_attack(_position: Vector3, _targets_hit: int, _damage_multiplier: float, effective_radius: float) -> void:
 	if not enable_temporary_vfx:
 		return
-	_landing_timer = 0.28
-	_show_effect(_landing_flash, clampf(effective_radius * 0.3, 1.0, 2.0))
-	_landing_sprite.visible = true
-	_landing_sprite.scale = Vector3.ONE * clampf(effective_radius * 0.28, 1.2, 2.2)
+	_landing_debris.amount_ratio = clampf(effective_radius / 5.0, 0.7, 1.0)
+	_landing_debris.restart()
+	var camera := get_viewport().get_camera_3d()
+	if camera != null and camera.get_parent() is ActionDashCameraFollow:
+		(camera.get_parent() as ActionDashCameraFollow).add_shake(0.12, 0.12)
 	_play_action(&"Jump_Land", 0.4)
 
 func _install_humanoid() -> void:
@@ -85,9 +76,6 @@ func _create_asset_vfx() -> void:
 	_slash_sprite = _make_billboard("MeleeSlash", SLASH_TEXTURE, Color(0.35, 0.9, 1.0, 0.9), 0.012)
 	_slash_sprite.position = Vector3(0.0, 1.0, -0.45)
 	$VFX.add_child(_slash_sprite)
-	_landing_sprite = _make_billboard("LandingRing", CIRCLE_TEXTURE, Color(1.0, 0.55, 0.12, 0.82), 0.012)
-	_landing_sprite.position.y = 1.15
-	$VFX.add_child(_landing_sprite)
 
 	_speed_particles = GPUParticles3D.new()
 	_speed_particles.name = "SuperSpeedParticles"
@@ -116,6 +104,38 @@ func _create_asset_vfx() -> void:
 	process_material.scale_max = 0.8
 	_speed_particles.process_material = process_material
 	$VFX.add_child(_speed_particles)
+
+	_landing_debris = GPUParticles3D.new()
+	_landing_debris.name = "LandingDebrisParticles"
+	_landing_debris.amount = 14
+	_landing_debris.lifetime = 0.36
+	_landing_debris.one_shot = true
+	_landing_debris.explosiveness = 0.92
+	_landing_debris.visibility_aabb = AABB(Vector3(-5, -2, -5), Vector3(10, 6, 10))
+	var debris_quad := QuadMesh.new()
+	debris_quad.size = Vector2(0.18, 0.18)
+	debris_quad.orientation = PlaneMesh.FACE_Z
+	var debris_material := StandardMaterial3D.new()
+	debris_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	debris_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	debris_material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	debris_material.albedo_color = Color(1.0, 0.62, 0.18, 0.82)
+	debris_material.albedo_texture = SPARK_TEXTURE
+	debris_quad.material = debris_material
+	_landing_debris.draw_pass_1 = debris_quad
+	var debris_process := ParticleProcessMaterial.new()
+	debris_process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	debris_process.emission_sphere_radius = 0.28
+	debris_process.direction = Vector3.UP
+	debris_process.spread = 55.0
+	debris_process.initial_velocity_min = 2.5
+	debris_process.initial_velocity_max = 5.5
+	debris_process.gravity = Vector3(0.0, -11.0, 0.0)
+	debris_process.scale_min = 0.45
+	debris_process.scale_max = 0.9
+	_landing_debris.process_material = debris_process
+	_landing_debris.position.y = 0.18
+	$VFX.add_child(_landing_debris)
 	_create_enemy_arrow()
 
 func _create_enemy_arrow() -> void:
@@ -226,7 +246,6 @@ func _update_super_feedback(player: ActionDashPlayer) -> void:
 	var super_visible := enable_temporary_vfx and player.is_super_movement_active()
 	_speed_particles.emitting = super_visible and speed_ratio > 0.35
 	_speed_particles.amount_ratio = clampf((speed_ratio - 0.25) / 0.75, 0.1, 1.0)
-	_kinetic_aura.visible = enable_temporary_vfx and player.is_kinetic_max_active()
 
 func _play_action(animation: StringName, duration: float) -> void:
 	if _action_timer > duration * 0.45:
@@ -256,18 +275,10 @@ func _update_effect(effect: MeshInstance3D, timer_name: StringName, delta: float
 	effect.scale += Vector3.ONE * delta * growth
 	if remaining <= 0.0:
 		effect.visible = false
-		if effect == _proximity_flash and is_instance_valid(_slash_sprite):
+		if is_instance_valid(_slash_sprite):
 			_slash_sprite.visible = false
-		if effect == _landing_flash and is_instance_valid(_landing_sprite):
-			_landing_sprite.visible = false
 
 func _hide_transient_vfx() -> void:
-	_kinetic_aura.visible = false
 	_proximity_flash.visible = false
-	_wave_flash.visible = false
-	_landing_flash.visible = false
-	_muzzle_flash.visible = false
 	if is_instance_valid(_slash_sprite):
 		_slash_sprite.visible = false
-	if is_instance_valid(_landing_sprite):
-		_landing_sprite.visible = false
