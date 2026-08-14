@@ -40,14 +40,14 @@ func _apply_state() -> void:
 		return
 	match _state:
 		&"danger":
-			_world_environment.environment.background_color = Color(0.12, 0.055, 0.055)
+			_world_environment.environment.background_color = Color(0.18, 0.09, 0.08)
 			_directional_light.light_color = Color(1.0, 0.72, 0.55)
 			_directional_light.light_energy = 1.0
 		&"critical":
-			_world_environment.environment.background_color = Color(0.16, 0.025, 0.035)
+			_world_environment.environment.background_color = Color(0.18, 0.035, 0.045)
 			_directional_light.light_color = Color(1.0, 0.38, 0.28)
 			_directional_light.light_energy = 0.82
 		_:
-			_world_environment.environment.background_color = Color(0.035, 0.047, 0.075)
-			_directional_light.light_color = Color.WHITE
-			_directional_light.light_energy = 1.15
+			_world_environment.environment.background_color = Color(0.12, 0.17, 0.26)
+			_directional_light.light_color = Color(1.0, 0.92, 0.8)
+			_directional_light.light_energy = 1.1

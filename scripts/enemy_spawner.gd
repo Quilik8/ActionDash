@@ -20,6 +20,7 @@ var _pending_flying: int = 0
 var _boss_pending: bool = false
 var _maximum_active: int = 0
 var _spawn_group_cursor: int = 0
+var _ground_visual_cursor: int = 0
 var _random := RandomNumberGenerator.new()
 var _group_centers: Array[Vector3] = []
 var _active_ground: Array[ActionDashEnemy] = []
@@ -43,6 +44,7 @@ func start_phase(config: ActionDashPhaseConfig) -> void:
 	_phase_config = config
 	_maximum_active = config.maximum_active_enemies
 	_random.seed = deterministic_seed + config.phase_number * 101
+	_ground_visual_cursor = 0
 	_create_group_centers(config.group_count, config.minimum_group_center_distance)
 	var normal_total := config.total_enemies - (1 if config.contains_boss else 0)
 	_pending_flying = clampi(roundi(normal_total * config.flying_enemy_ratio), 0, normal_total)
@@ -108,6 +110,13 @@ func _spawn_ground_enemy() -> void:
 	else:
 		enemy = _ground_pool.pop_back()
 	var group_index := _next_group_index()
+	var visual_variant: StringName = &"skeleton"
+	if _ground_visual_cursor % 10 == 7:
+		visual_variant = &"spider"
+	elif _ground_visual_cursor % 3 == 2:
+		visual_variant = &"slime"
+	_ground_visual_cursor += 1
+	enemy.configure_visual(visual_variant)
 	var home := _random_point_around(_group_centers[group_index], _phase_config.group_spread_radius)
 	enemy.set_meta("spawn_group", group_index)
 	enemy.activate(home)

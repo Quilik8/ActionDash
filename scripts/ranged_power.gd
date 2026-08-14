@@ -1,6 +1,7 @@
 class_name ActionDashRangedPower
 extends Node
 
+@warning_ignore("unused_signal")
 signal activated(origin: Vector3, direction: Vector3)
 
 @export_category("Ranged power")

@@ -15,9 +15,18 @@ signal vulnerability_changed(active: bool)
 @export var body_hit_radius: float = 4.2
 @export var body_hit_height: float = 4.2
 
+const DRAGON_SCENE := preload("res://assets/enemies/quaternius_lowpoly_monsters/Dragon.fbx")
+const DEATH_TEXTURE := preload("res://assets/vfx/brackeys/particles/smoke_04_a.png")
+
 var current_health: float
 var _vulnerability_remaining: float = 0.0
 var _defeated: bool = false
+var _death_timer: float = 0.0
+var _dragon: Node3D
+var _animation_player: AnimationPlayer
+var _death_vfx: Sprite3D
+var _hit_timer: float = 0.0
+var _current_animation: StringName
 
 @onready var _weak_point: Marker3D = $Detection/WeakPointCenter
 @onready var _vulnerability_aura: MeshInstance3D = $VisualRoot/VulnerabilityAura
@@ -27,11 +36,32 @@ func _ready() -> void:
 	add_to_group("enemies")
 	add_to_group("bosses")
 	_vulnerability_aura.visible = false
+	$VisualRoot/Model/Body.visible = false
+	_dragon = DRAGON_SCENE.instantiate() as Node3D
+	_dragon.name = "AnimatedDragon"
+	_dragon.scale = Vector3.ONE * 220.0
+	_dragon.rotation_degrees.y = 180.0
+	$VisualRoot/Model.add_child(_dragon)
+	var players := _dragon.find_children("*", "AnimationPlayer", true, false)
+	_animation_player = players[0] as AnimationPlayer if not players.is_empty() else null
+	_create_death_vfx()
+	_play_animation("Flying", 0.0, 0.8)
 
 func initialize(home_position: Vector3) -> void:
 	global_position = home_position
 
 func _process(delta: float) -> void:
+	if _defeated:
+		_death_timer = maxf(_death_timer - delta, 0.0)
+		$VisualRoot.scale = $VisualRoot.scale.lerp(Vector3.ONE * 0.7, 1.0 - exp(-4.0 * delta))
+		if _death_timer <= 0.0:
+			visible = false
+			set_process(false)
+			died.emit()
+		return
+	_hit_timer = maxf(_hit_timer - delta, 0.0)
+	if _hit_timer <= 0.0:
+		_play_animation("Flying", 0.16, 0.8)
 	if _vulnerability_remaining <= 0.0:
 		return
 	_vulnerability_remaining = maxf(_vulnerability_remaining - delta, 0.0)
@@ -67,9 +97,12 @@ func apply_damage(amount: float, damage_type: StringName = &"generic") -> void:
 		_defeated = true
 		remove_from_group("enemies")
 		remove_from_group("bosses")
-		visible = false
-		set_process(false)
-		died.emit()
+		_death_timer = 0.9
+		_death_vfx.visible = true
+		_play_animation("Death", 0.05, 1.5)
+	elif _animation_player != null:
+		_hit_timer = 0.18
+		_play_animation("Hit", 0.04, 1.4)
 
 func get_projectile_hit_position() -> Vector3:
 	return global_position + Vector3.UP * body_hit_height
@@ -86,3 +119,25 @@ func get_projectile_hit_zone(segment_start: Vector3, segment_end: Vector3, proje
 	if body_closest.distance_squared_to(body_center) <= pow(body_hit_radius + projectile_radius, 2.0):
 		return &"body"
 	return &"none"
+
+func _play_animation(keyword: String, blend: float, speed: float) -> void:
+	if _animation_player == null:
+		return
+	for animation in _animation_player.get_animation_list():
+		if keyword.to_lower() in String(animation).to_lower():
+			if _current_animation == animation and _animation_player.is_playing():
+				return
+			_current_animation = animation
+			_animation_player.play(animation, blend, speed)
+			return
+
+func _create_death_vfx() -> void:
+	_death_vfx = Sprite3D.new()
+	_death_vfx.name = "BossDeathSmoke"
+	_death_vfx.texture = DEATH_TEXTURE
+	_death_vfx.pixel_size = 0.045
+	_death_vfx.modulate = Color(0.75, 0.25, 0.18, 0.9)
+	_death_vfx.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_death_vfx.position.y = body_hit_height
+	$VisualRoot.add_child(_death_vfx)
+	_death_vfx.visible = false

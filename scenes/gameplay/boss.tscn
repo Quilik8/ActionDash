@@ -12,8 +12,8 @@ radius = 1.8
 height = 4.2
 
 [sub_resource type="CapsuleShape3D" id="BossShape"]
-radius = 1.9
-height = 4.4
+radius = 3.6
+height = 7.6
 
 [sub_resource type="StandardMaterial3D" id="WeakMaterial"]
 albedo_color = Color(1, 0.25, 0.08, 1)
@@ -27,7 +27,7 @@ radius = 0.72
 height = 1.44
 
 [sub_resource type="SphereShape3D" id="WeakShape"]
-radius = 0.72
+radius = 0.9
 
 [sub_resource type="StandardMaterial3D" id="AuraMaterial"]
 transparency = 1
@@ -45,7 +45,6 @@ height = 4.9
 script = ExtResource("1_boss")
 
 [node name="VisualRoot" type="Node3D" parent="."]
-scale = Vector3(2, 2, 2)
 
 [node name="Model" type="Node3D" parent="VisualRoot"]
 
@@ -54,18 +53,19 @@ position = Vector3(0, 2.1, 0)
 mesh = SubResource("BossMesh")
 
 [node name="WeakPoint" type="MeshInstance3D" parent="VisualRoot/Model"]
-position = Vector3(0, 2.5, 1.78)
+position = Vector3(0, 5.0, 3.15)
+scale = Vector3(1.25, 1.25, 1.25)
 mesh = SubResource("WeakMesh")
 
 [node name="VulnerabilityAura" type="MeshInstance3D" parent="VisualRoot"]
-position = Vector3(0, 2.1, 0)
+position = Vector3(0, 4.0, 0)
+scale = Vector3(1.7, 1.7, 1.7)
 mesh = SubResource("AuraMesh")
 
 [node name="Detection" type="Node3D" parent="."]
-scale = Vector3(2, 2, 2)
 
 [node name="BodyAimHitbox" type="Area3D" parent="Detection"]
-position = Vector3(0, 2.1, 0)
+position = Vector3(0, 3.8, 0)
 collision_layer = 2
 collision_mask = 0
 monitoring = false
@@ -75,7 +75,7 @@ monitorable = false
 shape = SubResource("BossShape")
 
 [node name="WeakPointAimHitbox" type="Area3D" parent="Detection"]
-position = Vector3(0, 2.5, 1.78)
+position = Vector3(0, 5.0, 3.15)
 collision_layer = 2
 collision_mask = 0
 monitoring = false
@@ -85,7 +85,7 @@ monitorable = false
 shape = SubResource("WeakShape")
 
 [node name="WeakPointCenter" type="Marker3D" parent="Detection"]
-position = Vector3(0, 2.5, 1.78)
+position = Vector3(0, 5.0, 3.15)
 
 [node name="FutureSockets" type="Node3D" parent="."]
 
