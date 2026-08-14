@@ -39,7 +39,8 @@ func _ready() -> void:
 	$VisualRoot/Model/Body.visible = false
 	_dragon = DRAGON_SCENE.instantiate() as Node3D
 	_dragon.name = "AnimatedDragon"
-	_dragon.scale = Vector3.ONE * 220.0
+	_dragon.scale = Vector3.ONE * 1.8
+	_dragon.position.y = 2.62
 	_dragon.rotation_degrees.y = 180.0
 	$VisualRoot/Model.add_child(_dragon)
 	var players := _dragon.find_children("*", "AnimationPlayer", true, false)

@@ -40,7 +40,7 @@ func _ready() -> void:
 	_primitive_body.visible = false
 	_model = BAT_SCENE.instantiate() as Node3D
 	_model.name = "AnimatedBat"
-	_model.scale = Vector3.ONE * 52.0
+	_model.scale = Vector3.ONE * 0.42
 	_model.rotation_degrees.y = 180.0
 	_visual_root.add_child(_model)
 	var players := _model.find_children("*", "AnimationPlayer", true, false)

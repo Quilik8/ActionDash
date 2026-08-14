@@ -28,6 +28,7 @@ signal landing_attack(position: Vector3, targets_hit: int, damage_multiplier: fl
 @export var ranged_power_path: NodePath = NodePath("Gameplay/RangedPower")
 @export var aim_height: float = 0.65
 @export var aim_distance: float = 60.0
+@export var minimum_aim_distance: float = 6.0
 
 @export_category("Aim debug")
 @export var show_aim_marker: bool = true
@@ -356,14 +357,22 @@ func _get_mouse_world_position() -> Vector3:
 	query.collide_with_bodies = true
 	query.exclude = [get_rid()]
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
-	if not hit.is_empty():
-		return hit["position"] as Vector3
-
 	var target_position := Vector3.INF
-	if absf(ray_direction.y) >= 0.001:
+	if not hit.is_empty():
+		target_position = hit["position"] as Vector3
+
+	if not target_position.is_finite() and absf(ray_direction.y) >= 0.001:
 		var distance := (global_position.y + aim_height - ray_origin.y) / ray_direction.y
 		if distance > 0.0:
 			target_position = ray_origin + ray_direction * distance
 	if not target_position.is_finite():
 		target_position = ray_end
+
+	# Very close camera hits create severe third-person parallax and can send the
+	# sphere sideways or behind the character. Keep the same screen ray, but use
+	# a point safely beyond the launch origin in those cases.
+	var launch_origin := _attack_origin.global_position if is_instance_valid(_attack_origin) else global_position + Vector3.UP * aim_height
+	if launch_origin.distance_to(target_position) < minimum_aim_distance:
+		var launch_depth := maxf((launch_origin - ray_origin).dot(ray_direction), 0.0)
+		target_position = ray_origin + ray_direction * (launch_depth + minimum_aim_distance)
 	return target_position

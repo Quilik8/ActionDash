@@ -24,7 +24,6 @@ var _speed_particles: GPUParticles3D
 
 @onready var _body: MeshInstance3D = $Model/Body
 @onready var _kinetic_aura: MeshInstance3D = $VFX/KineticAura
-@onready var _speed_trail: MeshInstance3D = $VFX/SpeedTrail
 @onready var _proximity_flash: MeshInstance3D = $VFX/ProximityFlash
 @onready var _wave_flash: MeshInstance3D = $VFX/KineticWave
 @onready var _landing_flash: MeshInstance3D = $VFX/LandingImpact
@@ -79,7 +78,6 @@ func _on_kinetic_wave(_position: Vector3, _targets_hit: int) -> void:
 
 func _on_kinetic_state_changed(active: bool) -> void:
 	_kinetic_aura.visible = enable_temporary_vfx and active
-	_speed_trail.visible = enable_temporary_vfx and active
 
 func _on_landing_attack(_position: Vector3, _targets_hit: int, _damage_multiplier: float, effective_radius: float) -> void:
 	if not enable_temporary_vfx:
@@ -157,7 +155,7 @@ func _update_character_animation(player: ActionDashPlayer, delta: float) -> void
 	_was_on_floor = on_floor
 	var horizontal := Vector3(player.velocity.x, 0.0, player.velocity.z)
 	if horizontal.length_squared() > 0.2:
-		var desired_yaw := atan2(-horizontal.x, -horizontal.z)
+		var desired_yaw := atan2(-horizontal.x, -horizontal.z) + PI
 		$Model.rotation.y = lerp_angle($Model.rotation.y, desired_yaw, 1.0 - exp(-12.0 * delta))
 	if _action_timer > 0.0:
 		return
@@ -179,8 +177,6 @@ func _update_super_feedback(player: ActionDashPlayer) -> void:
 	var super_visible := enable_temporary_vfx and player.is_super_movement_active()
 	_speed_particles.emitting = super_visible and speed_ratio > 0.35
 	_speed_particles.amount_ratio = clampf((speed_ratio - 0.25) / 0.75, 0.1, 1.0)
-	_speed_trail.visible = super_visible
-	_speed_trail.transparency = lerpf(0.78, 0.15, speed_ratio)
 	_kinetic_aura.visible = enable_temporary_vfx and player.is_kinetic_max_active()
 
 func _play_action(animation: StringName, duration: float) -> void:
@@ -222,7 +218,6 @@ func _update_effect(effect: MeshInstance3D, timer_name: StringName, delta: float
 
 func _hide_transient_vfx() -> void:
 	_kinetic_aura.visible = false
-	_speed_trail.visible = false
 	_proximity_flash.visible = false
 	_wave_flash.visible = false
 	_landing_flash.visible = false

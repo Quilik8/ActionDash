@@ -15,9 +15,9 @@ signal died
 @export var arrival_distance: float = 0.25
 
 const VISUALS := {
-	&"skeleton": [preload("res://assets/enemies/quaternius_lowpoly_monsters/Skeleton.fbx"), 72.0, "Idle", "Running", "Death", 1.0],
-	&"slime": [preload("res://assets/enemies/quaternius_lowpoly_monsters/Slime.fbx"), 48.0, "Idle", "Walk", "Death", 1.5],
-	&"spider": [preload("res://assets/enemies/quaternius_easy_animated/Spider.fbx"), 68.0, "Idle", "Walk", "Death", 4.0],
+	&"skeleton": [preload("res://assets/enemies/quaternius_lowpoly_monsters/Skeleton.fbx"), 0.36, "Idle", "Running", "Death", 1.0, 0.6],
+	&"slime": [preload("res://assets/enemies/quaternius_lowpoly_monsters/Slime.fbx"), 0.75, "Idle", "Walk", "Death", 1.5, 0.02],
+	&"spider": [preload("res://assets/enemies/quaternius_easy_animated/Spider.fbx"), 0.65, "Idle", "Walk", "Death", 4.0, 0.0],
 }
 const DEATH_TEXTURE := preload("res://assets/vfx/brackeys/particles/smoke_04_a.png")
 
@@ -148,6 +148,7 @@ func _install_visual() -> void:
 	_model = (definition[0] as PackedScene).instantiate() as Node3D
 	_model.name = "AnimatedModel"
 	_model.scale = Vector3.ONE * float(definition[1])
+	_model.position.y = float(definition[6])
 	_model.rotation_degrees.y = 180.0
 	_visual_root.add_child(_model)
 	max_health = float(definition[5])
