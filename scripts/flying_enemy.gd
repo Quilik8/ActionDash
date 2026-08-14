@@ -18,7 +18,9 @@ signal died
 
 @export_category("Performance LOD")
 @export var detailed_visual_distance: float = 40.0
-@export var simplified_visual_distance: float = 115.0
+@export var medium_visual_distance: float = 76.0
+@export var far_visual_distance: float = 115.0
+@export var lod_hysteresis: float = 3.0
 @export var lod_check_interval: float = 0.2
 @export var distant_logic_interval: float = 0.1
 
@@ -43,7 +45,7 @@ var _camera: Camera3D
 var _lod_timer: float = 0.0
 var _logic_accumulator: float = 0.0
 var _detailed_lod_active: bool = true
-var _simplified_lod_active: bool = false
+var _lod_level: int = 0
 var _assault_target: ActionDashProtectedCore
 var _route_stage: int = 0
 var _objective_attack_timer: float = 0.0
@@ -87,7 +89,8 @@ func activate(home_position: Vector3) -> void:
 	_update_performance_lod()
 	_hover_time = _random.randf_range(0.0, TAU)
 	_choose_protected_objective()
-	_play_animation("Flying", 0.0, 1.0)
+	if _detailed_lod_active:
+		_play_animation("Flying", 0.0, 1.0)
 
 func initialize(home_position: Vector3) -> void:
 	activate(home_position)
@@ -110,7 +113,6 @@ func _process(delta: float) -> void:
 	if _defeated:
 		_death_timer = maxf(_death_timer - delta, 0.0)
 		_visual_root.rotation.z += delta * 5.0
-		_visual_root.scale = _visual_root.scale.lerp(Vector3.ONE * 0.4, 1.0 - exp(-7.0 * delta))
 		if _death_timer <= 0.0:
 			died.emit()
 			set_process(false)
@@ -128,7 +130,8 @@ func _process(delta: float) -> void:
 	var logic_delta := _logic_accumulator
 	_logic_accumulator = 0.0
 	if _hit_timer <= 0.0:
-		_play_animation("Flying", 0.12, 1.0)
+		if _detailed_lod_active:
+			_play_animation("Flying", 0.12, 1.0)
 	_objective_attack_timer = maxf(_objective_attack_timer - logic_delta, 0.0)
 	var desired := _drift_target
 	desired.y = _home_position.y + sin(_hover_time) * hover_amplitude
@@ -145,7 +148,10 @@ func get_home_position() -> Vector3:
 	return _home_position
 
 func is_using_simplified_lod() -> bool:
-	return visible and _simplified_lod_active
+	return visible and _lod_level == 2
+
+func get_lod_level() -> int:
+	return _lod_level
 
 func is_assaulting_building() -> bool:
 	return is_attacking_objective()
@@ -166,11 +172,12 @@ func apply_damage(amount: float, _damage_type: StringName = &"generic") -> void:
 		remove_from_group("enemies")
 		remove_from_group("flying_enemies")
 		_death_timer = 0.58
-		_death_vfx.visible = true
+		_visual_root.scale = Vector3.ONE
+		_death_vfx.visible = _lod_level == 0
 		_play_animation("Death", 0.03, 2.0)
 	else:
 		_hit_timer = 0.16
-		_hit_vfx.visible = true
+		_hit_vfx.visible = _lod_level == 0
 		_hit_vfx.scale = Vector3.ONE * 0.8
 		_play_animation("Hit", 0.02, 1.5)
 
@@ -259,16 +266,45 @@ func _update_performance_lod() -> void:
 		_camera = get_viewport().get_camera_3d()
 	if _camera == null:
 		return
-	var distance_squared := _camera.global_position.distance_squared_to(global_position)
+	var distance := _camera.global_position.distance_to(global_position)
 	var in_view := _camera.is_position_in_frustum(global_position)
-	_detailed_lod_active = in_view and distance_squared <= detailed_visual_distance * detailed_visual_distance
-	_simplified_lod_active = in_view and distance_squared <= simplified_visual_distance * simplified_visual_distance and not _detailed_lod_active
+	if not in_view:
+		_lod_level = 3
+	else:
+		_lod_level = _select_lod_level(distance)
+	_detailed_lod_active = _lod_level == 0
 	if _detailed_lod_active and not is_instance_valid(_model):
 		_install_model()
 	if is_instance_valid(_model):
 		_model.visible = _detailed_lod_active
 		_model.process_mode = Node.PROCESS_MODE_INHERIT if _detailed_lod_active else Node.PROCESS_MODE_DISABLED
-	_primitive_body.visible = false
+		if not _detailed_lod_active and _lod_level >= 2:
+			_model.queue_free()
+			_model = null
+			_animation_player = null
+	_primitive_body.visible = _lod_level == 1
+	_primitive_body.mesh = ActionDashEnemy.create_lod_mesh(&"bat")
+	_primitive_body.position = Vector3(0.0, 0.0, 0.0)
+
+func _select_lod_level(distance: float) -> int:
+	var detail_in := maxf(detailed_visual_distance - lod_hysteresis, 0.0)
+	var detail_out := detailed_visual_distance + lod_hysteresis
+	var medium_in := maxf(medium_visual_distance - lod_hysteresis, detail_out)
+	var medium_out := medium_visual_distance + lod_hysteresis
+	var far_out := far_visual_distance + lod_hysteresis
+	if distance > far_out:
+		return 3
+	if _lod_level == 0:
+		return 0 if distance <= detail_out else 1
+	if _lod_level == 1:
+		if distance < detail_in:
+			return 0
+		return 1 if distance <= medium_out else 2
+	if _lod_level == 2:
+		if distance < detail_in:
+			return 0
+		return 1 if distance < medium_in else 2
+	return 0 if distance <= detail_in else (1 if distance <= medium_out else 2)
 
 func _install_model() -> void:
 	_model = BAT_SCENE.instantiate() as Node3D

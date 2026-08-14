@@ -81,6 +81,8 @@ func _run() -> void:
 	var normal_knockback := combat.get_knockback_force(player.normal_speed, player.normal_speed, player.max_speed)
 	var maximum_knockback := combat.get_knockback_force(player.max_speed, player.normal_speed, player.max_speed)
 	_expect(maximum_knockback > normal_knockback * 3.0, "La velocidad alta no aumenta claramente el knockback")
+	_expect(is_equal_approx(combat.get_lethal_knockback_force(player.normal_speed, player.normal_speed, player.max_speed), 30.0), "El knockback letal base no empieza en 30")
+	_expect(is_equal_approx(combat.get_lethal_knockback_force(player.max_speed, player.normal_speed, player.max_speed), 75.0), "El knockback letal SUPER no llega a 75")
 	var melee_enemy := DummyEnemy.new()
 	playground.add_child(melee_enemy)
 	melee_enemy.global_position = player.global_position + player.get_melee_attack_direction() * 3.0
@@ -96,6 +98,15 @@ func _run() -> void:
 
 	for _frame in 40:
 		await physics_frame
+	var visuals := player.get_node("VisualRoot") as ActionDashPlayerVisuals
+	var empty_attack_position := player.global_position
+	var empty_attack := combat.try_melee_attack(player, player.get_melee_attack_direction())
+	await physics_frame
+	_expect(empty_attack, "Melee sin objetivo no consume el ataque")
+	_expect(visuals._action_timer > 0.0, "Melee sin objetivo no dispara la animacion visual")
+	_expect(player.global_position.distance_to(empty_attack_position) < 0.01, "Melee sin objetivo mueve al Player")
+	for _frame in 20:
+		await physics_frame
 	var landing_enemy := DummyEnemy.new()
 	playground.add_child(landing_enemy)
 	landing_enemy.global_position = player.global_position + Vector3(2.0, 0.0, 0.0)
@@ -110,13 +121,14 @@ func _run() -> void:
 	player.move_and_slide()
 	var flying_enemy := (spawner.flying_enemy_scene.instantiate() as ActionDashFlyingEnemy)
 	playground.add_child(flying_enemy)
-	flying_enemy.activate(player.global_position + Vector3(2.8, 4.8, -3.0))
+	flying_enemy.activate(player.global_position + Vector3(1.8, 4.8, -1.8))
 	var aerial_health_before := flying_enemy.current_health
 	var aerial_hit := combat.try_melee_attack(player, Vector3(0.0, 0.0, -1.0))
 	_expect(not player.is_on_floor(), "La prueba aerea no dejo al Player fuera del suelo")
 	_expect(aerial_hit and flying_enemy.current_health < aerial_health_before, "Melee aereo no alcanzo al Bat dentro del volumen asistido")
 	_expect(flying_enemy.is_defeated(), "Melee aereo no pudo derrotar al Bat")
 	var aerial_start := flying_enemy.global_position
+	_expect(flying_enemy.get_node("VisualRoot").scale.distance_to(Vector3.ONE) < 0.01, "La muerte aerea reduce la escala antes del vuelo")
 	await physics_frame
 	_expect(flying_enemy.global_position.distance_to(aerial_start) > 0.01, "La muerte aerea no inicio trayectoria de knockback")
 	flying_enemy.deactivate()
@@ -124,19 +136,110 @@ func _run() -> void:
 	player.velocity = Vector3.ZERO
 	player.move_and_slide()
 
-	var ranged_one := DummyEnemy.new()
-	var ranged_two := DummyEnemy.new()
-	playground.add_child(ranged_one)
-	playground.add_child(ranged_two)
-	ranged_one.global_position = player.global_position + Vector3(0.0, 0.95, -7.0)
-	ranged_two.global_position = player.global_position + Vector3(0.0, 0.95, -13.0)
 	var ranged_power := player.get_node("Gameplay/RangedPower") as ActionDashRangedPower
+	var ranged_three: Array[DummyEnemy] = []
+	for depth in [7.0, 13.0, 19.0]:
+		var target := DummyEnemy.new()
+		playground.add_child(target)
+		target.global_position = player.global_position + Vector3(0.0, 0.95, -depth)
+		ranged_three.append(target)
 	ranged_power._cooldown_remaining = 0.0
-	var ranged_activated := player._spawn_energy_projectile_toward(player.global_position + Vector3(0.0, 0.0, -25.0))
-	for _frame in 60:
+	var ranged_activated := player._spawn_energy_projectile_toward(player.global_position + Vector3(0.0, 0.0, -30.0))
+	for _frame in 80:
 		await process_frame
 	_expect(ranged_activated, "RMB/ranged no pudo activar la esfera")
-	_expect(ranged_one.health <= 0.0 and ranged_two.health <= 0.0, "El proyectil ranged no atraveso dos enemigos tocados")
+	_expect(ranged_three[0].health <= 0.0 and ranged_three[1].health <= 0.0 and ranged_three[2].health <= 0.0, "La cadena ranged no completo tres objetivos unicos")
+
+	var ground_chain_a := DummyEnemy.new()
+	var ground_chain_b := DummyEnemy.new()
+	var bat_chain := spawner.flying_enemy_scene.instantiate() as ActionDashFlyingEnemy
+	playground.add_child(ground_chain_a)
+	playground.add_child(ground_chain_b)
+	playground.add_child(bat_chain)
+	ground_chain_a.global_position = player.global_position + Vector3(0.0, 0.95, -7.0)
+	ground_chain_b.global_position = player.global_position + Vector3(0.0, 0.95, -19.0)
+	bat_chain.activate(player.global_position + Vector3(0.0, 4.8, -13.0))
+	ranged_power._cooldown_remaining = 0.0
+	(ranged_power as ActionDashEnergySpherePower).debug_chain_targeting = true
+	var mixed_ranged := player._spawn_energy_projectile_toward(player.global_position + Vector3(0.0, 0.0, -30.0))
+	for _frame in 90:
+		await process_frame
+	_expect(mixed_ranged and ground_chain_a.health <= 0.0 and bat_chain.is_defeated() and ground_chain_b.health <= 0.0, "La cadena ranged no mezclo suelo, Bat y suelo")
+	(ranged_power as ActionDashEnergySpherePower).debug_chain_targeting = false
+	bat_chain.deactivate()
+
+	var one_target := DummyEnemy.new()
+	playground.add_child(one_target)
+	one_target.global_position = player.global_position + Vector3(0.0, 0.95, -8.0)
+	ranged_power._cooldown_remaining = 0.0
+	var one_shot := player._spawn_energy_projectile_toward(player.global_position + Vector3(0.0, 0.0, -20.0))
+	for _frame in 60:
+		await process_frame
+	_expect(one_shot and one_target.health <= 0.0, "El ranged de un objetivo no impacto")
+
+	var two_targets: Array[DummyEnemy] = []
+	for depth in [8.0, 15.0]:
+		var target := DummyEnemy.new()
+		playground.add_child(target)
+		target.global_position = player.global_position + Vector3(0.0, 0.95, -depth)
+		two_targets.append(target)
+	ranged_power._cooldown_remaining = 0.0
+	var two_shot := player._spawn_energy_projectile_toward(player.global_position + Vector3(0.0, 0.0, -22.0))
+	for _frame in 70:
+		await process_frame
+	_expect(two_shot and two_targets[0].health <= 0.0 and two_targets[1].health <= 0.0, "El ranged de dos objetivos no completo la cadena")
+
+	var capped_targets: Array[DummyEnemy] = []
+	for depth in [8.0, 14.0, 20.0, 26.0]:
+		var target := DummyEnemy.new()
+		playground.add_child(target)
+		target.global_position = player.global_position + Vector3(0.0, 0.95, -depth)
+		capped_targets.append(target)
+	ranged_power._cooldown_remaining = 0.0
+	var capped_shot := player._spawn_energy_projectile_toward(player.global_position + Vector3(0.0, 0.0, -36.0))
+	for _frame in 90:
+		await process_frame
+	_expect(capped_shot and capped_targets[0].health <= 0.0 and capped_targets[1].health <= 0.0 and capped_targets[2].health <= 0.0 and capped_targets[3].health > 0.0, "Ranged no respeta el maximo de tres objetivos")
+
+	# The boss weak point is acquired through the cursor ray before ordinary bodies.
+	var boss_config := load("res://resources/phases/phase_1.tres") as ActionDashPhaseConfig
+	if boss_config != null and boss_config.boss_scene != null:
+		var weak_boss := boss_config.boss_scene.instantiate() as ActionDashBoss
+		playground.add_child(weak_boss)
+		await process_frame
+		weak_boss.initialize(player.global_position + Vector3(0.0, 0.0, -16.0))
+		await process_frame
+		ranged_power._cooldown_remaining = 0.0
+		var weak_point_shot := player._spawn_energy_projectile_toward(weak_boss.get_projectile_weak_point_position())
+		for _frame in 55:
+			await process_frame
+		_expect(weak_point_shot and weak_boss.is_vulnerable(), "El ranged no prioriza el weak point del boss apuntado")
+		weak_boss.queue_free()
+
+	var camera := playground.get_viewport().get_camera_3d()
+	var lod_enemy := spawner.enemy_scene.instantiate() as ActionDashEnemy
+	playground.add_child(lod_enemy)
+	await process_frame
+	var camera_forward := -camera.global_basis.z
+	lod_enemy.global_position = camera.global_position + camera_forward * 10.0
+	lod_enemy._lod_level = 0
+	lod_enemy._update_performance_lod()
+	_expect(lod_enemy.get_lod_level() == 0 and lod_enemy._model.visible, "LOD0 cercano no conserva el modelo completo")
+	lod_enemy.global_position = camera.global_position + camera_forward * 50.0
+	lod_enemy._update_performance_lod()
+	_expect(lod_enemy.get_lod_level() == 1 and lod_enemy._primitive_body.visible, "LOD1 medio no activa el proxy reconocible")
+	lod_enemy.global_position = camera.global_position + camera_forward * 90.0
+	lod_enemy._update_performance_lod()
+	_expect(lod_enemy.get_lod_level() == 2 and lod_enemy._primitive_body.mesh is ArrayMesh, "LOD2 lejano no activa la silueta barata")
+	var lod_flying := spawner.flying_enemy_scene.instantiate() as ActionDashFlyingEnemy
+	playground.add_child(lod_flying)
+	lod_flying.activate(camera.global_position + camera_forward * 90.0)
+	lod_flying._update_performance_lod()
+	_expect(lod_flying.get_lod_level() == 2, "LOD2 no cubre al Bat")
+	lod_enemy.deactivate()
+	lod_enemy.queue_free()
+	lod_flying.deactivate()
+	lod_flying.queue_free()
 
 	var pool_config := (load("res://resources/phases/phase_1.tres") as ActionDashPhaseConfig).duplicate(true) as ActionDashPhaseConfig
 	pool_config.total_enemies = 1

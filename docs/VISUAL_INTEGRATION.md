@@ -16,10 +16,10 @@ Ground distribution is deterministic per phase: mostly Skeleton, approximately o
 ## Connected VFX
 
 - Melee: existing logical-radius ring plus Brackeys `slash_02_a` billboard and a short punch animation. A short action lock prevents the animation from restarting for every enemy in a multi-hit.
-- Landing: existing radius-scaled disc plus `circle_03_a` and `Jump_Land`.
+- Landing: reused smoke dust, spark fragments, four directional jets and `Jump_Land`; no disc/ring/sphere shockwave.
 - SUPER: aura, `trace_03_a` particles, progressive particle amount, Sprint animation, and the existing speed-dependent camera FOV. The old box-shaped speed arrow is intentionally disabled.
-- Energy sphere: emissive mesh and trail plus `magic_02_a` particles and a pulsing `light_02_a` halo. Each shot resolves the current camera ray at click time; very close hits are extended along that same ray to prevent third-person parallax from sending the sphere sideways or backward. Damage, size, contact margin, penetration, cooldown, and lifetime remain unchanged.
-- Enemy death: the available Death clip, a short `smoke_04_a` flash, and scale-down. The death signal is emitted after roughly half a second, then the existing spawner deactivates and returns regular enemies to the pool.
+- Energy sphere: emissive mesh and trail plus `magic_02_a` particles and a pulsing `light_02_a` halo. Each shot acquires by cursor direction, homes to the current target, then switches to up to two distinct nearby targets within a 12-unit chain radius. Damage, size, contact margin, cooldown, and lifetime remain independent; there is no AoE.
+- Enemy death: the available Death clip, a short `smoke_04_a` flash, full-scale flight and no scale-down. The death signal is emitted after the reaction, then the existing spawner deactivates and returns regular enemies to the pool.
 
 ## Provisional city
 

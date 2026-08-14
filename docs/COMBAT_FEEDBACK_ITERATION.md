@@ -20,16 +20,16 @@ Las trayectorias se simulan con velocidad artificial, arrastre y gravedad simpli
 
 ## Ranged
 
-La esfera mantiene penetración lineal y un impacto por enemigo mediante un diccionario de IDs. El tamaño visual exportado es `1.1` (antes `1.6`, 68.75%); el margen de contacto es `0.14`. No hay explosión ni AoE radial. Los objetivos alcanzados reciben una reacción ligera, y las muertes usan una trayectoria letal breve. El weak point del boss conserva su detección por segmento.
+La esfera mantiene tamaño visual `1.1`, margen de contacto `0.14`, trail y halo energético, pero ahora adquiere un primer objetivo por la dirección del cursor y encadena hasta tres enemigos distintos dentro de `chain_search_radius = 12.0`. La búsqueda ocurre al adquirir y al impactar, no en cada frame; no hay explosión ni AoE radial. El weak point del boss tiene prioridad cuando la línea del cursor pasa por él.
 
 ## SUPER y Landing Attack
 
 Se eliminó el `KineticAura` esférico. El trail direccional `SuperSpeedParticles`, FOV y distancia dinámica de cámara se conservan.
 
-Landing Attack sigue requiriendo salto/caída válidos y conserva radio 5.0, daño 1.4 y knockback radial. Se eliminaron la esfera, el anillo y cualquier disco genérico de aterrizaje. El feedback es debris local reutilizado, animación `Jump_Land`, reacción física de los enemigos y shake discreto de cámara.
+Landing Attack sigue requiriendo salto/caída válidos y conserva radio 5.0, daño 1.4 y knockback radial. Se eliminaron la esfera, el anillo y cualquier disco genérico de aterrizaje. El feedback es una composición de polvo, fragmentos y cuatro jets direccionales, además de `Jump_Land`, reacción física de los enemigos y shake discreto de cámara.
 
 ## Defensa y validación
 
 La integridad provisional de `ProtectedCore` sube de 1000 a 4000; el daño enemigo no se redujo. La UI conserva su formato y muestra el nuevo máximo.
 
-La validación headless `scripts/dev/rework_validation.gd` cubre movimiento preservado, melee terrestre, caso aéreo con Bat, ranged contra dos objetivos, diferencias de knockback, Landing Attack, pooling y derrota por integridad cero. El único warning de ejecución observado en hardware local es el fallback del driver AMD a ANGLE.
+La validación headless `scripts/dev/rework_validation.gd` cubre movimiento preservado, melee con y sin objetivo, caso aéreo con Bat, knockback letal 30–75, muertes sin shrink, Landing Attack, pooling, LOD0/1/2, cadenas ranged de 1/2/3/más de 3, mezcla suelo–Bat–suelo y weak point del boss. El único warning de hardware observado es el fallback del driver AMD a ANGLE.

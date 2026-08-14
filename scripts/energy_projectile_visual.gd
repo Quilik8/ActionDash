@@ -35,6 +35,11 @@ func play_launch() -> void:
 	_launch_flash.visible = true
 	_launch_flash.scale = Vector3.ONE * 0.2
 
+func play_target_switch() -> void:
+	_launch_timer = 0.09
+	_launch_flash.visible = true
+	_launch_flash.scale = Vector3.ONE * 0.14
+
 func _process(delta: float) -> void:
 	_pulse_time += delta
 	if is_instance_valid(_energy_halo):

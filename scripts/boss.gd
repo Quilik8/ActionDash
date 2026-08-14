@@ -67,7 +67,6 @@ func _process(delta: float) -> void:
 		return
 	if _defeated:
 		_death_timer = maxf(_death_timer - delta, 0.0)
-		$VisualRoot.scale = $VisualRoot.scale.lerp(Vector3.ONE * 0.7, 1.0 - exp(-4.0 * delta))
 		if _death_timer <= 0.0:
 			visible = false
 			set_process(false)
@@ -114,6 +113,7 @@ func apply_damage(amount: float, damage_type: StringName = &"generic") -> void:
 		remove_from_group("enemies")
 		remove_from_group("bosses")
 		_death_timer = 0.9
+		$VisualRoot.scale = Vector3.ONE
 		_death_vfx.visible = true
 		_play_animation("Death", 0.05, 1.5)
 	elif _animation_player != null:
@@ -135,6 +135,9 @@ func is_defeated() -> bool:
 
 func get_projectile_hit_position() -> Vector3:
 	return global_position + Vector3.UP * body_hit_height
+
+func get_projectile_weak_point_position() -> Vector3:
+	return _weak_point.global_position
 
 func _update_objective_assault(delta: float) -> void:
 	if not is_instance_valid(_protected_core):

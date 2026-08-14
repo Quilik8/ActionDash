@@ -30,8 +30,8 @@ signal landing_impact(position: Vector3, targets_hit: int, damage_multiplier: fl
 @export var knockback_vertical_boost: float = 3.2
 
 @export_category("Melee lethal knockback")
-@export var lethal_knockback_force: float = 15.0
-@export var lethal_speed_knockback_bonus: float = 30.0
+@export var lethal_knockback_force: float = 30.0
+@export var lethal_speed_knockback_bonus: float = 45.0
 @export_range(0.25, 3.0, 0.05) var lethal_knockback_speed_exponent: float = 1.1
 @export var lethal_knockback_duration: float = 0.75
 @export var lethal_knockback_vertical_boost: float = 6.0
@@ -64,8 +64,6 @@ func try_melee_attack(player: ActionDashPlayer, attack_direction: Vector3) -> bo
 		flat_direction = Vector3.FORWARD
 	var airborne := not player.is_on_floor()
 	var targets := _select_melee_targets(player.global_position, flat_direction, airborne)
-	if targets.is_empty():
-		return false
 	var speed := player.get_horizontal_speed()
 	var damage_multiplier := get_damage_multiplier(speed, player.max_speed)
 	var knockback_force := get_knockback_force(speed, player.normal_speed, player.max_speed)
@@ -135,8 +133,6 @@ func try_landing_attack(
 	if air_time < landing_minimum_air_time or fall_speed < landing_minimum_fall_speed:
 		return false
 	var targets := _get_landing_targets(world_position)
-	if targets.is_empty():
-		return false
 	for enemy in targets:
 		var direction: Vector3 = enemy.get_projectile_hit_position() - world_position
 		direction.y = 0.0

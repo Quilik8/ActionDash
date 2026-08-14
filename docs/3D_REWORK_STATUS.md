@@ -32,7 +32,7 @@ Los enemigos básicos pueden morir de un golpe, pero completan una reacción bre
 
 El Landing Attack normal sigue siendo automático y no requiere clic. Requiere al menos 0.25 s en el aire y caída de velocidad 2. Su radio es fijo en 5, daño 1.4, knockback radial 9, duración 0.42 s e impulso vertical 2.2.
 
-No existe una variante gigante vinculada a velocidad máxima y su radio no escala con SUPER. Los supervivientes reciben desplazamiento, animación Hit y spark reutilizado; las muertes muestran humo, giro y trayectoria antes del reciclaje.
+No existe una variante gigante vinculada a velocidad máxima y su radio no escala con SUPER. Los supervivientes reciben desplazamiento, animación Hit y spark reutilizado; las muertes muestran humo, giro y trayectoria a escala completa antes del reciclaje.
 
 ## Escenario y defensa
 
@@ -44,9 +44,9 @@ Los spawns se agrupan en sectores norte, este, sur y oeste. Enemigos terrestres 
 
 ## Rendimiento y sistemas conservados
 
-Se mantienen pooling, LOD detallado/simplificado, lotes `MultiMesh`, lógica distante escalonada y reciclaje de instancias. El knockback es una velocidad temporal por enemigo y no crea cuerpos físicos. En esta iteración no se repitió el stress test de 200 enemigos, según el alcance solicitado.
+Se mantienen pooling, `LOD0` detallado, `LOD1` medio estático y `LOD2` lejano por lotes `MultiMesh`, lógica distante escalonada y reciclaje de instancias. Los proxies se separan por Skeleton, Slime, Spider y Bat; no hay cilindro rojo compartido ni esqueletos animados masivos a distancia. El knockback es una velocidad temporal por enemigo y no crea cuerpos físicos. En esta iteración no se repitió el stress test de 200 enemigos, según el alcance solicitado.
 
-La esfera usa `RangedPower` con cooldown independiente, tamaño visual exportado 1.1 y margen de contacto 0.14. Atraviesa enemigos y aplica un impacto por instancia registrada; no explota ni genera AoE radial. El weak point del boss continúa usando el mismo trayecto. Se eliminó por completo el aura esférica de SUPER; se conserva `SuperSpeedParticles` y el encuadre dinámico de cámara.
+La esfera usa `RangedPower` con cooldown independiente, tamaño visual exportado 1.1 y margen de contacto 0.14. Adquiere por cursor y cono, homing arcade y encadena hasta tres instancias registradas dentro de 12 unidades; no explota ni genera AoE radial. El weak point del boss gana prioridad si el cursor lo apunta intencionalmente. Se eliminó por completo el aura esférica de SUPER; se conserva `SuperSpeedParticles` y el encuadre dinámico de cámara.
 
 ## Extensión futura y límites
 
@@ -56,4 +56,4 @@ Antes de integrar el futuro loop 2D habrá que definir cómo persisten integrida
 
 ## Validación breve
 
-`scripts/dev/rework_validation.gd` comprueba en headless: NORMAL fijo/parada, toggle y persistencia SUPER, aceleración y reinicio de dirección, retorno a NORMAL, ausencia de daño por proximidad, melee terrestre, melee aéreo contra Bat, ranged atravesando dos objetivos, diferencia de knockback, Landing Attack fijo/radial, muerte con trayectoria, reciclaje/reutilización del pool y derrota por integridad cero.
+`scripts/dev/rework_validation.gd` comprueba en headless: NORMAL fijo/parada, toggle y persistencia SUPER, aceleración y reinicio de dirección, retorno a NORMAL, ausencia de daño por proximidad, melee con y sin objetivo, melee aéreo contra Bat, knockback letal 30–75, Landing Attack, muerte a escala completa, LOD0/1/2, cadenas ranged de 1/2/3/más de 3, mezcla suelo–Bat–suelo, weak point, reciclaje/reutilización del pool y derrota por integridad cero.

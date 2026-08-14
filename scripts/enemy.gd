@@ -17,7 +17,9 @@ signal died
 
 @export_category("Performance LOD")
 @export var detailed_visual_distance: float = 34.0
-@export var simplified_visual_distance: float = 105.0
+@export var medium_visual_distance: float = 68.0
+@export var far_visual_distance: float = 105.0
+@export var lod_hysteresis: float = 3.0
 @export var lod_check_interval: float = 0.2
 @export var distant_logic_interval: float = 0.1
 
@@ -46,7 +48,7 @@ var _camera: Camera3D
 var _lod_timer: float = 0.0
 var _logic_accumulator: float = 0.0
 var _detailed_lod_active: bool = true
-var _simplified_lod_active: bool = false
+var _lod_level: int = 0
 var _assault_target: ActionDashProtectedCore
 var _attacking_building: bool = false
 var _route_stage: int = 0
@@ -62,6 +64,7 @@ var _ground_height: float = 0.0
 func _ready() -> void:
 	_random.seed = hash(str(get_instance_id()))
 	_primitive_body.visible = false
+	_update_primitive_lod_shape()
 	_create_death_vfx()
 	_create_hit_vfx()
 	deactivate()
@@ -72,8 +75,17 @@ func configure_visual(variant: StringName) -> void:
 	if _visual_variant == variant and is_instance_valid(_model):
 		return
 	_visual_variant = variant
-	if is_node_ready() and is_instance_valid(_model):
+	if not is_node_ready():
+		return
+	_update_primitive_lod_shape()
+	if not is_instance_valid(_model):
+		return
+	if _detailed_lod_active:
 		_install_visual()
+	else:
+		_model.queue_free()
+		_model = null
+		_animation_player = null
 
 func get_visual_variant() -> StringName:
 	return _visual_variant
@@ -104,7 +116,8 @@ func activate(home_position: Vector3) -> void:
 	_logic_accumulator = 0.0
 	_update_performance_lod()
 	_choose_protected_objective()
-	_play_named_animation(String(VISUALS[_visual_variant][2]), 0.0, 1.0)
+	if _detailed_lod_active:
+		_play_named_animation(String(VISUALS[_visual_variant][2]), 0.0, 1.0)
 
 func initialize(home_position: Vector3) -> void:
 	activate(home_position)
@@ -127,7 +140,6 @@ func _process(delta: float) -> void:
 	if _defeated:
 		_death_timer = maxf(_death_timer - delta, 0.0)
 		_visual_root.rotation.z += delta * 7.0
-		_visual_root.scale = _visual_root.scale.lerp(Vector3.ONE * 0.55, 1.0 - exp(-7.0 * delta))
 		if _death_timer <= 0.0:
 			died.emit()
 			set_process(false)
@@ -151,20 +163,25 @@ func _process(delta: float) -> void:
 		_attacking_building = false
 		global_position += offset.normalized() * minf(wander_speed * logic_delta, offset.length())
 		_visual_root.rotation.y = lerp_angle(_visual_root.rotation.y, atan2(-offset.x, -offset.z), 1.0 - exp(-7.0 * logic_delta))
-		_play_named_animation(String(VISUALS[_visual_variant][3]), 0.18, 1.0)
+		if _detailed_lod_active:
+			_play_named_animation(String(VISUALS[_visual_variant][3]), 0.18, 1.0)
 	elif _route_stage < 2:
 		_advance_objective_route()
 	else:
 		_attacking_building = true
 		_face_assault_target(logic_delta)
-		_play_building_attack()
+		if _detailed_lod_active:
+			_play_building_attack()
 		_try_damage_objective()
 
 func get_home_position() -> Vector3:
 	return _home_position
 
 func is_using_simplified_lod() -> bool:
-	return visible and _simplified_lod_active
+	return visible and _lod_level == 2
+
+func get_lod_level() -> int:
+	return _lod_level
 
 func is_attacking_building() -> bool:
 	return is_attacking_objective()
@@ -185,12 +202,13 @@ func apply_damage(amount: float, _damage_type: StringName = &"generic") -> void:
 		remove_from_group("enemies")
 		remove_from_group("ground_enemies")
 		_death_timer = 0.58
-		_death_vfx.visible = true
+		_visual_root.scale = Vector3.ONE
+		_death_vfx.visible = _lod_level == 0
 		_death_vfx.scale = Vector3.ONE * (1.7 if _visual_variant == &"spider" else 1.0)
 		_play_named_animation(String(VISUALS[_visual_variant][4]), 0.03, 2.0)
 	else:
 		_hit_timer = 0.14
-		_hit_vfx.visible = true
+		_hit_vfx.visible = _lod_level == 0
 		_hit_vfx.scale = Vector3.ONE * 0.75
 		_visual_root.scale = Vector3.ONE * 1.12
 
@@ -290,16 +308,43 @@ func _update_performance_lod() -> void:
 		_camera = get_viewport().get_camera_3d()
 	if _camera == null:
 		return
-	var distance_squared := _camera.global_position.distance_squared_to(global_position)
+	var distance := _camera.global_position.distance_to(global_position)
 	var in_view := _camera.is_position_in_frustum(global_position + Vector3.UP)
-	_detailed_lod_active = in_view and distance_squared <= detailed_visual_distance * detailed_visual_distance
-	_simplified_lod_active = in_view and distance_squared <= simplified_visual_distance * simplified_visual_distance and not _detailed_lod_active
+	if not in_view:
+		_lod_level = 3
+	else:
+		_lod_level = _select_lod_level(distance)
+	_detailed_lod_active = _lod_level == 0
 	if _detailed_lod_active and not is_instance_valid(_model):
 		_install_visual()
 	if is_instance_valid(_model):
 		_model.visible = _detailed_lod_active
 		_model.process_mode = Node.PROCESS_MODE_INHERIT if _detailed_lod_active else Node.PROCESS_MODE_DISABLED
-	_primitive_body.visible = false
+		if not _detailed_lod_active and _lod_level >= 2:
+			_model.queue_free()
+			_model = null
+			_animation_player = null
+	_primitive_body.visible = _lod_level == 1
+
+func _select_lod_level(distance: float) -> int:
+	var detail_in := maxf(detailed_visual_distance - lod_hysteresis, 0.0)
+	var detail_out := detailed_visual_distance + lod_hysteresis
+	var medium_in := maxf(medium_visual_distance - lod_hysteresis, detail_out)
+	var medium_out := medium_visual_distance + lod_hysteresis
+	var far_out := far_visual_distance + lod_hysteresis
+	if distance > far_out:
+		return 3
+	if _lod_level == 0:
+		return 0 if distance <= detail_out else 1
+	if _lod_level == 1:
+		if distance < detail_in:
+			return 0
+		return 1 if distance <= medium_out else 2
+	if _lod_level == 2:
+		if distance < detail_in:
+			return 0
+		return 1 if distance < medium_in else 2
+	return 0 if distance <= detail_in else (1 if distance <= medium_out else 2)
 
 func _install_visual() -> void:
 	if is_instance_valid(_model):
@@ -318,13 +363,85 @@ func _install_visual() -> void:
 	_update_primitive_lod_shape()
 
 func _update_primitive_lod_shape() -> void:
+	_primitive_body.mesh = ActionDashEnemy.create_lod_mesh(_visual_variant)
 	match _visual_variant:
 		&"slime":
-			_primitive_body.scale = Vector3(1.15, 0.65, 1.15)
+			_primitive_body.position = Vector3(0.0, 0.52, 0.0)
+			_primitive_body.scale = Vector3.ONE
 		&"spider":
-			_primitive_body.scale = Vector3(1.65, 0.45, 1.65)
+			_primitive_body.position = Vector3(0.0, 0.62, 0.0)
+			_primitive_body.scale = Vector3.ONE
 		_:
-			_primitive_body.scale = Vector3(0.85, 1.0, 0.85)
+			_primitive_body.position = Vector3(0.0, 0.82, 0.0)
+			_primitive_body.scale = Vector3.ONE
+
+static func create_lod_mesh(variant: StringName) -> Mesh:
+	if variant == &"slime":
+		var slime := SphereMesh.new()
+		slime.radius = 0.8
+		slime.height = 1.0
+		slime.radial_segments = 8
+		slime.rings = 4
+		slime.material = _create_lod_material(Color(0.25, 0.82, 0.42), Color(0.02, 0.12, 0.04))
+		return slime
+	var vertices := PackedVector3Array()
+	var indices := PackedInt32Array()
+	match variant:
+		&"spider":
+			_append_lod_box(vertices, indices, Vector3(0.0, 0.0, 0.0), Vector3(1.35, 0.52, 0.9))
+			_append_lod_box(vertices, indices, Vector3(0.0, 0.02, -0.58), Vector3(0.62, 0.42, 0.52))
+			for side in [-1.0, 1.0]:
+				_append_lod_box(vertices, indices, Vector3(side * 0.78, -0.05, -0.32), Vector3(0.72, 0.12, 0.16))
+				_append_lod_box(vertices, indices, Vector3(side * 0.82, -0.05, 0.32), Vector3(0.78, 0.12, 0.16))
+				_append_lod_box(vertices, indices, Vector3(side * 0.42, -0.05, 0.7), Vector3(0.16, 0.12, 0.72))
+			return _build_lod_mesh(vertices, indices, Color(0.48, 0.24, 0.68), Color(0.08, 0.02, 0.12))
+		&"bat":
+			_append_lod_box(vertices, indices, Vector3(0.0, 0.0, 0.0), Vector3(0.48, 0.72, 0.72))
+			_append_lod_box(vertices, indices, Vector3(-0.62, 0.08, 0.0), Vector3(0.9, 0.1, 0.75))
+			_append_lod_box(vertices, indices, Vector3(0.62, 0.08, 0.0), Vector3(0.9, 0.1, 0.75))
+			return _build_lod_mesh(vertices, indices, Color(0.22, 0.58, 0.86), Color(0.02, 0.08, 0.16))
+		_:
+			_append_lod_box(vertices, indices, Vector3(0.0, 0.0, 0.0), Vector3(0.62, 1.02, 0.42))
+			_append_lod_box(vertices, indices, Vector3(0.0, 0.72, 0.0), Vector3(0.5, 0.44, 0.5))
+			_append_lod_box(vertices, indices, Vector3(-0.52, 0.05, 0.0), Vector3(0.16, 0.76, 0.16))
+			_append_lod_box(vertices, indices, Vector3(0.52, 0.05, 0.0), Vector3(0.16, 0.76, 0.16))
+			return _build_lod_mesh(vertices, indices, Color(0.62, 0.68, 0.72), Color(0.08, 0.1, 0.12))
+
+static func _create_lod_material(color: Color, emission: Color) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = color
+	material.emission_enabled = true
+	material.emission = emission
+	return material
+
+static func _build_lod_mesh(vertices: PackedVector3Array, indices: PackedInt32Array, color: Color, emission: Color) -> ArrayMesh:
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	mesh.surface_set_material(0, _create_lod_material(color, emission))
+	return mesh
+
+static func _append_lod_box(vertices: PackedVector3Array, indices: PackedInt32Array, center: Vector3, size: Vector3) -> void:
+	var half := size * 0.5
+	var base := vertices.size()
+	vertices.append_array(PackedVector3Array([
+		center + Vector3(-half.x, -half.y, -half.z), center + Vector3(half.x, -half.y, -half.z),
+		center + Vector3(half.x, half.y, -half.z), center + Vector3(-half.x, half.y, -half.z),
+		center + Vector3(-half.x, -half.y, half.z), center + Vector3(half.x, -half.y, half.z),
+		center + Vector3(half.x, half.y, half.z), center + Vector3(-half.x, half.y, half.z)
+	]))
+	indices.append_array(PackedInt32Array([
+		base + 0, base + 1, base + 2, base + 0, base + 2, base + 3,
+		base + 4, base + 6, base + 5, base + 4, base + 7, base + 6,
+		base + 0, base + 4, base + 5, base + 0, base + 5, base + 1,
+		base + 3, base + 2, base + 6, base + 3, base + 6, base + 7,
+		base + 0, base + 3, base + 7, base + 0, base + 7, base + 4,
+		base + 1, base + 5, base + 6, base + 1, base + 6, base + 2
+	]))
 
 func _play_named_animation(keyword: String, blend: float, speed: float) -> void:
 	if _animation_player == null:
