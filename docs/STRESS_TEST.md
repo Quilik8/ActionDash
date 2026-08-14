@@ -12,16 +12,18 @@ Escenario reproducible: `res://scenes/dev/stress_test.tscn`
 - El daño se desactiva solo en el laboratorio para conservar los 200 enemigos durante toda la medición.
 - La cámara gira a 45 grados por segundo mientras el jugador corre, para recorrer el mapa y cambiar continuamente la vista.
 
-| Carga | Duración | Giro | Recorrido | FPS promedio | Tiempo por cuadro | Mínimo en 0,5 s | Muestras >= 30 FPS |
+| Carga | Aparición | Duración | Giro | Enemigos movidos | Recorrido medio enemigo | FPS promedio | Mínimo en 0,5 s |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 22 enemigos | 8,3 s | 371,1 grados | 297,0 m | 59,3 | 16,88 ms | 55,8 FPS | 100 % |
-| 200 enemigos | 30,1 s | 1.355,0 grados | 1.084,2 m | 52,3 | 19,14 ms | 33,8 FPS | 100 % |
+| 22 enemigos | 61,3 ms | 8,1 s | 365,3 grados | 22 de 22 | 18,8 m | 58,5 | 54,1 FPS |
+| 200 enemigos | 465,0 ms | 30,1 s | 1.355,1 grados | 200 de 200 | 46,4 m | 54,8 | 35,4 FPS |
 
-La composición de los 200 enemigos permaneció estable: 99 esqueletos, 49 slimes, 16 arañas y 36 murciélagos. No hubo reinicios de ruta y todos los efectos se confirmaron activos al terminar.
+La composición de los 200 enemigos permaneció estable: 99 esqueletos, 49 slimes, 16 arañas y 36 murciélagos. No hubo reinicios de ruta, el 100 % de las muestras quedó sobre 30 FPS y todos los efectos se confirmaron activos. Al terminar, 56 enemigos estaban en conducta de asalto a edificios.
 
 Antes de optimizar, la prueba corta con 200 enemigos promedió 10,0 FPS y bajó a 8,2 FPS. El resultado final usa animación completa cerca del jugador, lógica distante menos frecuente, suspensión de modelos fuera de cámara y `MultiMesh` para agrupar los LOD lejanos. La cámara también suaviza por separado su punto de mira y evita atravesar edificios.
 
-Conclusión: el objetivo de 200 enemigos simultáneos a un mínimo de 30 FPS quedó superado en este equipo. La prueba final promedió 52,3 FPS y su peor intervalo de medio segundo fue 33,8 FPS.
+La aparición usa carga diferida: el LOD ligero se muestra inmediatamente y el FBX animado solo se prepara cuando el enemigo entra en el radio cercano. Los enemigos terrestres se desplazan entre edificios, atacan al alcanzar su perímetro y luego eligen otro objetivo; los voladores orbitan las construcciones.
+
+Conclusión: el objetivo de 200 enemigos simultáneos a un mínimo de 30 FPS quedó superado en este equipo. La prueba final con todos los enemigos en movimiento promedió 54,8 FPS y su peor intervalo de medio segundo fue 35,4 FPS.
 
 ## Repetir la prueba
 

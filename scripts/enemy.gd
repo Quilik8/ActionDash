@@ -7,12 +7,13 @@ signal died
 @export_category("Enemy")
 @export var max_health: float = 1.0
 
-@export_category("Territorial idle")
-@export var wander_speed: float = 0.75
+@export_category("City assault")
+@export var wander_speed: float = 2.6
 @export var territory_radius: float = 4.0
-@export var decision_interval_min: float = 1.5
-@export var decision_interval_max: float = 3.5
+@export var decision_interval_min: float = 2.0
+@export var decision_interval_max: float = 4.5
 @export var arrival_distance: float = 0.25
+@export var building_standoff_margin: float = 1.5
 
 @export_category("Performance LOD")
 @export var detailed_visual_distance: float = 34.0
@@ -45,6 +46,8 @@ var _lod_timer: float = 0.0
 var _logic_accumulator: float = 0.0
 var _detailed_lod_active: bool = true
 var _simplified_lod_active: bool = false
+var _assault_target: Node3D
+var _attacking_building: bool = false
 
 @onready var _visual_root: Node3D = $VisualRoot
 @onready var _primitive_body: MeshInstance3D = $VisualRoot/Body
@@ -53,7 +56,6 @@ func _ready() -> void:
 	_random.seed = hash(str(get_instance_id()))
 	_primitive_body.visible = false
 	_create_death_vfx()
-	_install_visual()
 	deactivate()
 
 func configure_visual(variant: StringName) -> void:
@@ -62,7 +64,7 @@ func configure_visual(variant: StringName) -> void:
 	if _visual_variant == variant and is_instance_valid(_model):
 		return
 	_visual_variant = variant
-	if is_node_ready():
+	if is_node_ready() and is_instance_valid(_model):
 		_install_visual()
 
 func get_visual_variant() -> StringName:
@@ -76,6 +78,7 @@ func activate(home_position: Vector3) -> void:
 	_defeated = false
 	_death_timer = 0.0
 	_hit_timer = 0.0
+	_attacking_building = false
 	_visual_root.scale = Vector3.ONE
 	_death_vfx.visible = false
 	visible = true
@@ -85,7 +88,7 @@ func activate(home_position: Vector3) -> void:
 	_lod_timer = _random.randf_range(0.0, lod_check_interval)
 	_logic_accumulator = 0.0
 	_update_performance_lod()
-	_schedule_next_decision()
+	_choose_building_target()
 	_play_named_animation(String(VISUALS[_visual_variant][2]), 0.0, 1.0)
 
 func initialize(home_position: Vector3) -> void:
@@ -122,19 +125,25 @@ func _process(delta: float) -> void:
 	var offset := _wander_target - global_position
 	offset.y = 0.0
 	if offset.length() > arrival_distance:
+		_attacking_building = false
 		global_position += offset.normalized() * minf(wander_speed * logic_delta, offset.length())
 		_visual_root.rotation.y = lerp_angle(_visual_root.rotation.y, atan2(-offset.x, -offset.z), 1.0 - exp(-7.0 * logic_delta))
 		_play_named_animation(String(VISUALS[_visual_variant][3]), 0.18, 1.0)
 	elif _decision_timer <= 0.0:
-		_choose_wander_target()
+		_choose_building_target()
 	else:
-		_play_named_animation(String(VISUALS[_visual_variant][2]), 0.22, 1.0)
+		_attacking_building = true
+		_face_assault_target(logic_delta)
+		_play_building_attack()
 
 func get_home_position() -> Vector3:
 	return _home_position
 
 func is_using_simplified_lod() -> bool:
 	return visible and _simplified_lod_active
+
+func is_attacking_building() -> bool:
+	return visible and _attacking_building and is_instance_valid(_assault_target)
 
 func get_simplified_lod_transform() -> Transform3D:
 	return transform * _primitive_body.transform
@@ -161,11 +170,53 @@ func get_projectile_hit_position() -> Vector3:
 func get_projectile_hit_radius() -> float:
 	return 1.35 if _visual_variant == &"spider" else (0.75 if _visual_variant == &"slime" else 0.82)
 
-func _choose_wander_target() -> void:
-	var angle := _random.randf_range(0.0, TAU)
-	var distance := sqrt(_random.randf()) * territory_radius
-	_wander_target = _home_position + Vector3(cos(angle), 0.0, sin(angle)) * distance
+func _choose_building_target() -> void:
+	var buildings := get_tree().get_nodes_in_group("city_building_colliders")
+	if buildings.is_empty():
+		var angle := _random.randf_range(0.0, TAU)
+		var distance := sqrt(_random.randf()) * territory_radius
+		_wander_target = _home_position + Vector3(cos(angle), 0.0, sin(angle)) * distance
+		_schedule_next_decision()
+		return
+	var closest_candidates: Array[Node3D] = []
+	var closest_distances: Array[float] = []
+	for node in buildings:
+		var building := node as Node3D
+		var distance_squared := global_position.distance_squared_to(building.global_position)
+		var insert_at := closest_distances.bsearch(distance_squared)
+		closest_distances.insert(insert_at, distance_squared)
+		closest_candidates.insert(insert_at, building)
+		if closest_candidates.size() > 4:
+			closest_candidates.pop_back()
+			closest_distances.pop_back()
+	_assault_target = closest_candidates[_random.randi_range(0, closest_candidates.size() - 1)]
+	var outward := global_position - _assault_target.global_position
+	outward.y = 0.0
+	if outward.length_squared() < 0.01:
+		var angle := _random.randf_range(0.0, TAU)
+		outward = Vector3(cos(angle), 0.0, sin(angle))
+	else:
+		outward = outward.normalized()
+	var collision_size: Vector3 = _assault_target.get_meta("collision_size", Vector3(8.0, 8.0, 8.0))
+	var building_radius := maxf(collision_size.x, collision_size.z) * 0.55 + building_standoff_margin
+	_wander_target = _assault_target.global_position + outward * building_radius
+	_wander_target.y = _home_position.y
+	_attacking_building = false
 	_schedule_next_decision()
+
+func _face_assault_target(delta: float) -> void:
+	if not is_instance_valid(_assault_target):
+		return
+	var direction := _assault_target.global_position - global_position
+	direction.y = 0.0
+	if direction.length_squared() > 0.01:
+		_visual_root.rotation.y = lerp_angle(_visual_root.rotation.y, atan2(-direction.x, -direction.z), 1.0 - exp(-9.0 * delta))
+
+func _play_building_attack() -> void:
+	if _find_animation("Attack") != &"":
+		_play_named_animation("Attack", 0.12, 1.15)
+	else:
+		_play_named_animation(String(VISUALS[_visual_variant][2]), 0.18, 1.0)
 
 func _schedule_next_decision() -> void:
 	_decision_timer = _random.randf_range(decision_interval_min, decision_interval_max)
@@ -173,14 +224,17 @@ func _schedule_next_decision() -> void:
 func _update_performance_lod() -> void:
 	if not is_instance_valid(_camera):
 		_camera = get_viewport().get_camera_3d()
-	if _camera == null or not is_instance_valid(_model):
+	if _camera == null:
 		return
 	var distance_squared := _camera.global_position.distance_squared_to(global_position)
 	var in_view := _camera.is_position_in_frustum(global_position + Vector3.UP)
 	_detailed_lod_active = in_view and distance_squared <= detailed_visual_distance * detailed_visual_distance
 	_simplified_lod_active = in_view and distance_squared <= simplified_visual_distance * simplified_visual_distance and not _detailed_lod_active
-	_model.visible = _detailed_lod_active
-	_model.process_mode = Node.PROCESS_MODE_INHERIT if _detailed_lod_active else Node.PROCESS_MODE_DISABLED
+	if _detailed_lod_active and not is_instance_valid(_model):
+		_install_visual()
+	if is_instance_valid(_model):
+		_model.visible = _detailed_lod_active
+		_model.process_mode = Node.PROCESS_MODE_INHERIT if _detailed_lod_active else Node.PROCESS_MODE_DISABLED
 	_primitive_body.visible = false
 
 func _install_visual() -> void:
@@ -218,6 +272,8 @@ func _play_named_animation(keyword: String, blend: float, speed: float) -> void:
 	_animation_player.play(animation, blend, speed)
 
 func _find_animation(keyword: String) -> StringName:
+	if _animation_player == null:
+		return &""
 	for animation in _animation_player.get_animation_list():
 		if keyword.to_lower() in String(animation).to_lower():
 			return animation

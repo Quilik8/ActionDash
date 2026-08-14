@@ -17,7 +17,6 @@ var _visuals: ActionDashPlayerVisuals
 var _spawner: ActionDashEnemySpawner
 var _controller: ActionDashPhaseController
 var _camera_rig: ActionDashCameraFollow
-var _effect_refresh_timer: float = 0.0
 var _sphere_timer: float = 0.0
 var _arrow_force_timer: float = 0.0
 var _effects_active: bool = false
@@ -51,28 +50,40 @@ func _process(delta: float) -> void:
 		_camera_rig.snap_to_target()
 		_reset_count += 1
 	_controller._time_remaining = 29.0
-	_effect_refresh_timer = maxf(_effect_refresh_timer - delta, 0.0)
 	_sphere_timer = maxf(_sphere_timer - delta, 0.0)
 	_arrow_force_timer = maxf(_arrow_force_timer - delta, 0.0)
-	if _effect_refresh_timer <= 0.0:
-		_effect_refresh_timer = 0.1
-		var melee_radius := _player.get_visual_melee_radius()
-		_visuals._on_proximity_attack(_player.global_position, 4, 3.0, melee_radius)
-		_visuals._on_kinetic_wave(_player.global_position, 8)
-		_visuals._on_landing_attack(_player.global_position, 6, 1.3, _player.get_estimated_landing_radius())
-		_visuals._on_energy_attack_fired((_player.get_node("AttackOrigin") as Marker3D).global_position, -_player.global_basis.z)
-		_visuals._on_kinetic_state_changed(true)
 	if _sphere_timer <= 0.0:
 		_sphere_timer = 0.9
 		var power := _player.get_node("Gameplay/RangedPower") as ActionDashRangedPower
 		power._cooldown_remaining = 0.0
 		_player._spawn_energy_projectile_toward(_player.global_position + Vector3(0.0, 12.0, -55.0))
-	var vfx := _player.get_node("VisualRoot/VFX")
-	(vfx.get_node("KineticAura") as MeshInstance3D).visible = true
-	(vfx.get_node("SuperSpeedParticles") as GPUParticles3D).emitting = true
+	_force_stable_player_effects()
 	if _arrow_force_timer <= 0.0:
 		_arrow_force_timer = 0.1
 		_force_enemy_arrow()
+
+func _force_stable_player_effects() -> void:
+	var vfx := _player.get_node("VisualRoot/VFX")
+	var stable_scales := {
+		"KineticAura": Vector3.ONE,
+		"ProximityFlash": Vector3.ONE * 1.45,
+		"KineticWave": Vector3.ONE * 1.25,
+		"LandingImpact": Vector3.ONE * 1.5,
+		"MuzzleFlash": Vector3.ONE * 0.45,
+	}
+	for node_name in stable_scales:
+		var effect := vfx.get_node(NodePath(node_name)) as MeshInstance3D
+		effect.visible = true
+		effect.scale = stable_scales[node_name]
+	(vfx.get_node("SuperSpeedParticles") as GPUParticles3D).emitting = true
+	var slash := vfx.get_node_or_null("MeleeSlash") as Sprite3D
+	if slash != null:
+		slash.visible = true
+		slash.scale = Vector3.ONE * 1.8
+	var landing_sprite := vfx.get_node_or_null("LandingRing") as Sprite3D
+	if landing_sprite != null:
+		landing_sprite.visible = true
+		landing_sprite.scale = Vector3.ONE * 1.5
 
 func _force_enemy_arrow() -> void:
 	var arrow := _player.get_node("VisualRoot/VFX/EnemyDirectionArrow") as Node3D
@@ -132,12 +143,15 @@ func _measure_population(label: String, active_count: int, duration_seconds: flo
 	config.maximum_active_enemies = active_count
 	config.time_limit_seconds = 999.0
 	config.spawn_interval = 0.0
+	var spawn_start_usec := Time.get_ticks_usec()
 	_spawner.start_phase(config)
+	var spawn_setup_ms := float(Time.get_ticks_usec() - spawn_start_usec) / 1000.0
 	_controller._enemies_remaining = active_count
 	_controller._time_remaining = 29.0
 	await get_tree().create_timer(warmup_seconds).timeout
 
 	var actual_count := _spawner.get_active_count()
+	var starting_enemy_positions := _capture_enemy_positions()
 	var starting_distance := _travel_distance
 	var starting_orbit := _orbit_degrees
 	var starting_reset_count := _reset_count
@@ -163,16 +177,28 @@ func _measure_population(label: String, active_count: int, duration_seconds: flo
 	var elapsed_seconds := maxf(float(Time.get_ticks_usec() - start_usec) / 1000000.0, 0.001)
 	var average_fps := float(Engine.get_process_frames() - start_frames) / elapsed_seconds
 	var variants := {&"skeleton": 0, &"slime": 0, &"spider": 0, &"bat": 0}
+	var attacking_buildings := 0
 	for node in get_tree().get_nodes_in_group("ground_enemies"):
 		var enemy := node as ActionDashEnemy
 		variants[enemy.get_visual_variant()] = int(variants[enemy.get_visual_variant()]) + 1
+		if enemy.is_attacking_building():
+			attacking_buildings += 1
 	variants[&"bat"] = get_tree().get_node_count_in_group("flying_enemies")
+	for node in get_tree().get_nodes_in_group("flying_enemies"):
+		if (node as ActionDashFlyingEnemy).is_assaulting_building():
+			attacking_buildings += 1
+	var enemy_motion := _measure_enemy_motion(starting_enemy_positions)
 	var measurement := {
 		"requested_active": active_count,
 		"actual_active": actual_count,
 		"average_fps": snappedf(average_fps, 0.1),
 		"minimum_half_second_fps": snappedf(minimum_fps, 0.1),
 		"average_frame_ms": snappedf(1000.0 / maxf(average_fps, 0.001), 0.01),
+		"spawn_setup_ms": snappedf(spawn_setup_ms, 0.1),
+		"ending_active": _spawner.get_active_count(),
+		"enemies_moved": enemy_motion["moved"],
+		"average_enemy_travel": enemy_motion["average_travel"],
+		"attacking_buildings": attacking_buildings,
 		"duration_seconds": snappedf(elapsed_seconds, 0.1),
 		"travel_distance": snappedf(_travel_distance - starting_distance, 0.1),
 		"orbit_degrees": snappedf(_orbit_degrees - starting_orbit, 0.1),
@@ -185,6 +211,30 @@ func _measure_population(label: String, active_count: int, duration_seconds: flo
 	}
 	print("STRESS_STAGE ", JSON.stringify({label: measurement}))
 	return measurement
+
+func _capture_enemy_positions() -> Dictionary:
+	var positions := {}
+	for node in get_tree().get_nodes_in_group("enemies"):
+		if node is Node3D:
+			positions[node.get_instance_id()] = (node as Node3D).global_position
+	return positions
+
+func _measure_enemy_motion(starting_positions: Dictionary) -> Dictionary:
+	var moved := 0
+	var total_travel := 0.0
+	var measured := 0
+	for node in get_tree().get_nodes_in_group("enemies"):
+		if not node is Node3D or not starting_positions.has(node.get_instance_id()):
+			continue
+		var travel := (node as Node3D).global_position.distance_to(starting_positions[node.get_instance_id()])
+		total_travel += travel
+		measured += 1
+		if travel >= 0.5:
+			moved += 1
+	return {
+		"moved": moved,
+		"average_travel": snappedf(total_travel / maxf(float(measured), 1.0), 0.1),
+	}
 
 func _get_player_effect_state() -> Dictionary:
 	var vfx := _player.get_node("VisualRoot/VFX")

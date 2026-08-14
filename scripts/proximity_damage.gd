@@ -24,12 +24,11 @@ signal landing_impact(position: Vector3, targets_hit: int, damage_multiplier: fl
 @export var kinetic_wave_cooldown: float = 1.25
 
 @export_category("Landing attack")
-@export var landing_melee_multiplier: float = 1.35
+@export var landing_radius: float = 5.0
 @export var landing_damage: float = 1.4
 @export var landing_minimum_air_time: float = 0.25
 @export var landing_minimum_fall_speed: float = 2.0
 @export var landing_cooldown: float = 0.6
-@export_range(1.0, 2.0, 0.05) var landing_speed_bonus_limit: float = 1.3
 
 var _damage_timer: float = 0.0
 var _wave_timer: float = 0.0
@@ -84,31 +83,29 @@ func get_effective_radius(horizontal_speed: float, configured_max_speed: float) 
 func get_visual_radius(horizontal_speed: float, configured_max_speed: float) -> float:
 	return damage_radius * get_radius_multiplier(horizontal_speed, configured_max_speed)
 
-func get_landing_radius(horizontal_speed: float, configured_max_speed: float) -> float:
-	var effective_melee_radius := get_effective_radius(horizontal_speed, configured_max_speed)
-	return effective_melee_radius * landing_melee_multiplier
+func get_landing_radius(_horizontal_speed: float, _configured_max_speed: float) -> float:
+	return landing_radius
 
 func is_kinetic_max(horizontal_speed: float, configured_max_speed: float) -> bool:
 	return horizontal_speed >= configured_max_speed * kinetic_max_threshold
 
 func try_landing_attack(
 	world_position: Vector3,
-	horizontal_speed: float,
+	_horizontal_speed: float,
 	fall_speed: float,
 	air_time: float,
-	configured_max_speed: float
+	_configured_max_speed: float
 ) -> bool:
 	if _landing_timer > 0.0:
 		return false
 	if air_time < landing_minimum_air_time or fall_speed < landing_minimum_fall_speed:
 		return false
-	var effective_radius := get_landing_radius(horizontal_speed, configured_max_speed)
+	var effective_radius := get_landing_radius(_horizontal_speed, _configured_max_speed)
 	var targets := _get_melee_targets(world_position, effective_radius, false)
 	if targets.is_empty():
 		return false
 
-	var speed_ratio := clampf(horizontal_speed / maxf(configured_max_speed, 0.001), 0.0, 1.0)
-	var multiplier := lerpf(1.0, landing_speed_bonus_limit, speed_ratio)
+	var multiplier := 1.0
 	for enemy in targets:
 		enemy.apply_damage(landing_damage * multiplier, &"landing")
 	_landing_timer = landing_cooldown

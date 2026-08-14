@@ -112,20 +112,21 @@ func _spawn_one_pending() -> void:
 func _spawn_ground_enemy() -> void:
 	if enemy_scene == null or _group_centers.is_empty():
 		return
-	var enemy: ActionDashEnemy
-	if _ground_pool.is_empty():
-		enemy = enemy_scene.instantiate() as ActionDashEnemy
-		add_child(enemy)
-		enemy.died.connect(_on_ground_enemy_died.bind(enemy))
-	else:
-		enemy = _ground_pool.pop_back()
-	var group_index := _next_group_index()
 	var visual_variant: StringName = &"skeleton"
 	if _ground_visual_cursor % 10 == 7:
 		visual_variant = &"spider"
 	elif _ground_visual_cursor % 3 == 2:
 		visual_variant = &"slime"
 	_ground_visual_cursor += 1
+	var enemy: ActionDashEnemy
+	if _ground_pool.is_empty():
+		enemy = enemy_scene.instantiate() as ActionDashEnemy
+		enemy.configure_visual(visual_variant)
+		add_child(enemy)
+		enemy.died.connect(_on_ground_enemy_died.bind(enemy))
+	else:
+		enemy = _ground_pool.pop_back()
+	var group_index := _next_group_index()
 	enemy.configure_visual(visual_variant)
 	var home := _random_point_around(_group_centers[group_index], _phase_config.group_spread_radius)
 	enemy.set_meta("spawn_group", group_index)

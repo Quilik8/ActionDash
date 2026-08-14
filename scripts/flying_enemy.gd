@@ -8,7 +8,7 @@ signal died
 @export var max_health: float = 1.0
 
 @export_category("Territorial flight")
-@export var drift_speed: float = 1.1
+@export var drift_speed: float = 3.0
 @export var territory_radius: float = 5.5
 @export var hover_amplitude: float = 0.65
 @export var hover_frequency: float = 1.15
@@ -42,6 +42,7 @@ var _lod_timer: float = 0.0
 var _logic_accumulator: float = 0.0
 var _detailed_lod_active: bool = true
 var _simplified_lod_active: bool = false
+var _assault_target: Node3D
 
 @onready var _visual_root: Node3D = $VisualRoot
 @onready var _primitive_body: MeshInstance3D = $VisualRoot/Body
@@ -49,13 +50,6 @@ var _simplified_lod_active: bool = false
 func _ready() -> void:
 	_random.seed = hash(str(get_instance_id()))
 	_primitive_body.visible = false
-	_model = BAT_SCENE.instantiate() as Node3D
-	_model.name = "AnimatedBat"
-	_model.scale = Vector3.ONE * 0.42
-	_model.rotation_degrees.y = 180.0
-	_visual_root.add_child(_model)
-	var players := _model.find_children("*", "AnimationPlayer", true, false)
-	_animation_player = players[0] as AnimationPlayer if not players.is_empty() else null
 	_create_death_vfx()
 	deactivate()
 
@@ -78,7 +72,7 @@ func activate(home_position: Vector3) -> void:
 	_logic_accumulator = 0.0
 	_update_performance_lod()
 	_hover_time = _random.randf_range(0.0, TAU)
-	_schedule_next_decision()
+	_choose_building_target()
 	_play_animation("Flying", 0.0, 1.0)
 
 func initialize(home_position: Vector3) -> void:
@@ -122,13 +116,16 @@ func _process(delta: float) -> void:
 	if Vector2(offset.x, offset.z).length_squared() > 0.02:
 		_visual_root.rotation.y = lerp_angle(_visual_root.rotation.y, atan2(-offset.x, -offset.z), 1.0 - exp(-6.0 * logic_delta))
 	if global_position.distance_squared_to(desired) < 0.2 or _decision_timer <= 0.0:
-		_choose_drift_target()
+		_choose_building_target()
 
 func get_home_position() -> Vector3:
 	return _home_position
 
 func is_using_simplified_lod() -> bool:
 	return visible and _simplified_lod_active
+
+func is_assaulting_building() -> bool:
+	return visible and is_instance_valid(_assault_target)
 
 func get_simplified_lod_transform() -> Transform3D:
 	return transform * _primitive_body.transform
@@ -153,10 +150,28 @@ func get_projectile_hit_position() -> Vector3:
 func get_projectile_hit_radius() -> float:
 	return 0.95
 
-func _choose_drift_target() -> void:
+func _choose_building_target() -> void:
+	var buildings := get_tree().get_nodes_in_group("city_building_colliders")
+	if buildings.is_empty():
+		var fallback_angle := _random.randf_range(0.0, TAU)
+		var fallback_distance := sqrt(_random.randf()) * territory_radius
+		_drift_target = _home_position + Vector3(cos(fallback_angle), 0.0, sin(fallback_angle)) * fallback_distance
+		_schedule_next_decision()
+		return
+	var closest: Node3D
+	var closest_distance_squared := INF
+	for node in buildings:
+		var building := node as Node3D
+		var distance_squared := global_position.distance_squared_to(building.global_position)
+		if distance_squared < closest_distance_squared:
+			closest_distance_squared = distance_squared
+			closest = building
+	_assault_target = closest
+	var collision_size: Vector3 = _assault_target.get_meta("collision_size", Vector3(8.0, 8.0, 8.0))
 	var angle := _random.randf_range(0.0, TAU)
-	var distance := sqrt(_random.randf()) * territory_radius
-	_drift_target = _home_position + Vector3(cos(angle), 0.0, sin(angle)) * distance
+	var orbit_radius := maxf(collision_size.x, collision_size.z) * 0.55 + _random.randf_range(2.0, 5.0)
+	_drift_target = _assault_target.global_position + Vector3(cos(angle), 0.0, sin(angle)) * orbit_radius
+	_drift_target.y = _assault_target.global_position.y + clampf(collision_size.y * 0.65, 5.0, 11.0)
 	_schedule_next_decision()
 
 func _schedule_next_decision() -> void:
@@ -165,15 +180,27 @@ func _schedule_next_decision() -> void:
 func _update_performance_lod() -> void:
 	if not is_instance_valid(_camera):
 		_camera = get_viewport().get_camera_3d()
-	if _camera == null or not is_instance_valid(_model):
+	if _camera == null:
 		return
 	var distance_squared := _camera.global_position.distance_squared_to(global_position)
 	var in_view := _camera.is_position_in_frustum(global_position)
 	_detailed_lod_active = in_view and distance_squared <= detailed_visual_distance * detailed_visual_distance
 	_simplified_lod_active = in_view and distance_squared <= simplified_visual_distance * simplified_visual_distance and not _detailed_lod_active
-	_model.visible = _detailed_lod_active
-	_model.process_mode = Node.PROCESS_MODE_INHERIT if _detailed_lod_active else Node.PROCESS_MODE_DISABLED
+	if _detailed_lod_active and not is_instance_valid(_model):
+		_install_model()
+	if is_instance_valid(_model):
+		_model.visible = _detailed_lod_active
+		_model.process_mode = Node.PROCESS_MODE_INHERIT if _detailed_lod_active else Node.PROCESS_MODE_DISABLED
 	_primitive_body.visible = false
+
+func _install_model() -> void:
+	_model = BAT_SCENE.instantiate() as Node3D
+	_model.name = "AnimatedBat"
+	_model.scale = Vector3.ONE * 0.42
+	_model.rotation_degrees.y = 180.0
+	_visual_root.add_child(_model)
+	var players := _model.find_children("*", "AnimationPlayer", true, false)
+	_animation_player = players[0] as AnimationPlayer if not players.is_empty() else null
 
 func _play_animation(keyword: String, blend: float, speed: float) -> void:
 	if _animation_player == null:

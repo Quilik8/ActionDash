@@ -69,16 +69,16 @@ func _on_proximity_attack(_position: Vector3, _targets_hit: int, _damage_multipl
 	if not enable_temporary_vfx:
 		return
 	_proximity_timer = 0.16
-	_show_radial_effect(_proximity_flash, effective_radius / 0.9)
+	_show_effect(_proximity_flash, clampf(effective_radius * 0.2, 0.9, 2.0))
 	_slash_sprite.visible = true
-	_slash_sprite.scale = Vector3.ONE * clampf(effective_radius * 0.42, 1.5, 4.2)
+	_slash_sprite.scale = Vector3.ONE * clampf(effective_radius * 0.25, 1.3, 2.8)
 	_play_action(&"Punch_Cross", 0.34)
 
 func _on_kinetic_wave(_position: Vector3, _targets_hit: int) -> void:
 	if not enable_temporary_vfx:
 		return
 	_wave_timer = 0.24
-	_show_effect(_wave_flash, 0.4)
+	_show_effect(_wave_flash, 1.1)
 
 func _on_kinetic_state_changed(active: bool) -> void:
 	_kinetic_aura.visible = enable_temporary_vfx and active
@@ -87,9 +87,9 @@ func _on_landing_attack(_position: Vector3, _targets_hit: int, _damage_multiplie
 	if not enable_temporary_vfx:
 		return
 	_landing_timer = 0.28
-	_show_radial_effect(_landing_flash, effective_radius)
+	_show_effect(_landing_flash, clampf(effective_radius * 0.3, 1.0, 2.0))
 	_landing_sprite.visible = true
-	_landing_sprite.scale = Vector3.ONE * effective_radius * 0.85
+	_landing_sprite.scale = Vector3.ONE * clampf(effective_radius * 0.28, 1.2, 2.2)
 	_play_action(&"Jump_Land", 0.4)
 
 func _install_humanoid() -> void:
@@ -107,9 +107,7 @@ func _create_asset_vfx() -> void:
 	_slash_sprite.position = Vector3(0.0, 1.0, -0.45)
 	$VFX.add_child(_slash_sprite)
 	_landing_sprite = _make_billboard("LandingRing", CIRCLE_TEXTURE, Color(1.0, 0.55, 0.12, 0.82), 0.012)
-	_landing_sprite.rotation_degrees.x = -90.0
-	_landing_sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-	_landing_sprite.position.y = 0.08
+	_landing_sprite.position.y = 1.15
 	$VFX.add_child(_landing_sprite)
 
 	_speed_particles = GPUParticles3D.new()
@@ -267,17 +265,13 @@ func _show_effect(effect: MeshInstance3D, initial_scale: float) -> void:
 	effect.visible = true
 	effect.scale = Vector3.ONE * initial_scale
 
-func _show_radial_effect(effect: MeshInstance3D, radius_scale: float) -> void:
-	effect.visible = true
-	effect.scale = Vector3(radius_scale, 1.0, radius_scale)
-
 func _update_effect(effect: MeshInstance3D, timer_name: StringName, delta: float, growth: float) -> void:
 	var remaining: float = get(timer_name)
 	if remaining <= 0.0:
 		return
 	remaining = maxf(remaining - delta, 0.0)
 	set(timer_name, remaining)
-	effect.scale += Vector3(1.0, 0.0, 1.0) * delta * growth
+	effect.scale += Vector3.ONE * delta * growth
 	if remaining <= 0.0:
 		effect.visible = false
 		if effect == _proximity_flash and is_instance_valid(_slash_sprite):
