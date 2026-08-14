@@ -24,7 +24,7 @@ signal landing_impact(position: Vector3, targets_hit: int, damage_multiplier: fl
 @export var kinetic_wave_cooldown: float = 1.25
 
 @export_category("Landing attack")
-@export var landing_melee_multiplier: float = 1.5
+@export var landing_melee_multiplier: float = 1.35
 @export var landing_damage: float = 1.4
 @export var landing_minimum_air_time: float = 0.25
 @export var landing_minimum_fall_speed: float = 2.0

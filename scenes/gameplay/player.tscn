@@ -152,7 +152,7 @@ maximum_radius_multiplier = 1.5
 radius_scaling_exponent = 1.15
 contact_radius_multiplier = 1.1
 kinetic_max_impact_multiplier = 2.0
-landing_melee_multiplier = 1.5
+landing_melee_multiplier = 1.35
 
 [node name="RangedPower" type="Node" parent="Gameplay"]
 script = ExtResource("5_power")

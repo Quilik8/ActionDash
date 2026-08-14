@@ -4,7 +4,7 @@ This is the first playable visual build. Gameplay remains authoritative; importe
 
 ## Runtime mapping
 
-- Player: the in-place humanoid contained in `UAL1_Standard.glb`, displayed at `1.2x`. `player_visuals.gd` selects `Idle`, `Jog_Fwd`, `Sprint`, `Jump_Start`, `Jump`, `Jump_Land`, `Punch_Cross`, and `Spell_Simple_Shoot`. The model turns toward horizontal velocity, but never applies root motion.
+- Player: the in-place humanoid contained in `UAL1_Standard.glb`, displayed at `1.5x`. `player_visuals.gd` selects `Idle`, `Jog_Fwd`, `Sprint`, `Jump_Start`, `Jump`, `Jump_Land`, `Punch_Cross`, and `Spell_Simple_Shoot`. The model turns toward horizontal velocity, but never applies root motion.
 - Ground basic: Skeleton, using Idle, Running, and Death; calibrated to roughly 1.8 m tall.
 - Ground variant: Slime, using Idle, Walk, and Death; calibrated to roughly 1.5 m tall. It shares territorial behavior with Skeleton.
 - Ground heavy: Spider, using Idle, Walk, and Death. It is roughly 3.8 m wide, appears at a low ratio, and has 4 HP while retaining the same lightweight behavior.

@@ -96,7 +96,7 @@ func _install_humanoid() -> void:
 	_body.visible = false
 	_humanoid = HUMANOID_SCENE.instantiate() as Node3D
 	_humanoid.name = "UALHumanoid"
-	_humanoid.scale = Vector3.ONE * 1.2
+	_humanoid.scale = Vector3.ONE * 1.5
 	$Model.add_child(_humanoid)
 	var players := _humanoid.find_children("*", "AnimationPlayer", true, false)
 	if not players.is_empty():
