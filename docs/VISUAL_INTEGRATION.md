@@ -4,7 +4,7 @@ This is the first playable visual build. Gameplay remains authoritative; importe
 
 ## Runtime mapping
 
-- Player: the in-place humanoid contained in `UAL1_Standard.glb`. `player_visuals.gd` selects `Idle`, `Jog_Fwd`, `Sprint`, `Jump_Start`, `Jump`, `Jump_Land`, `Punch_Cross`, and `Spell_Simple_Shoot`. The model turns toward horizontal velocity, but never applies root motion.
+- Player: the in-place humanoid contained in `UAL1_Standard.glb`, displayed at `1.2x`. `player_visuals.gd` selects `Idle`, `Jog_Fwd`, `Sprint`, `Jump_Start`, `Jump`, `Jump_Land`, `Punch_Cross`, and `Spell_Simple_Shoot`. The model turns toward horizontal velocity, but never applies root motion.
 - Ground basic: Skeleton, using Idle, Running, and Death; calibrated to roughly 1.8 m tall.
 - Ground variant: Slime, using Idle, Walk, and Death; calibrated to roughly 1.5 m tall. It shares territorial behavior with Skeleton.
 - Ground heavy: Spider, using Idle, Walk, and Death. It is roughly 3.8 m wide, appears at a low ratio, and has 4 HP while retaining the same lightweight behavior.
@@ -24,6 +24,10 @@ Ground distribution is deterministic per phase: mostly Skeleton, approximately o
 ## Provisional city
 
 `city_visuals.gd` creates nine flat road/plaza surfaces, 30 playable-edge buildings with one simple box collider each, and 28 low-detail skyline buildings outside the playable limits without collision. The result preserves the full 300 x 240 movement area and keeps three long north/south routes, three long east/west routes, and open plazas. Existing ramps and elevated platforms remain as simple gameplay geometry.
+
+Six lightweight material tints add blue, coral, yellow, green, violet, and pink variation while preserving the Kenney colormap texture. Horizon buildings use a desaturated version of the same palette.
+
+During the final 30 seconds of combat, a small emissive arrow above the Player points toward the nearest active enemy. It updates ten times per second and remains hidden during cards, skill trees, and when no enemy is active.
 
 Lighting uses one unshadowed directional light and ambient environment lighting for Compatibility renderer performance. Phase-time deterioration still changes the sky/light color.
 

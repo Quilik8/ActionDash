@@ -2,6 +2,7 @@ class_name ActionDashCityVisuals
 extends Node3D
 
 const CITY_ROOT := "res://assets/environment/city/kenney_city_kit_commercial/"
+const CITY_COLORMAP := preload("res://assets/environment/city/kenney_city_kit_commercial/Textures/colormap.png")
 const BUILDINGS := [
 	"building-a.glb", "building-b.glb", "building-c.glb", "building-d.glb",
 	"building-e.glb", "building-f.glb", "building-g.glb", "building-h.glb",
@@ -17,6 +18,14 @@ const HORIZON_BUILDINGS := [
 	"low-detail-building-j.glb", "low-detail-building-k.glb", "low-detail-building-l.glb",
 	"low-detail-building-m.glb", "low-detail-building-n.glb",
 	"low-detail-building-wide-a.glb", "low-detail-building-wide-b.glb",
+]
+const BUILDING_PALETTE := [
+	Color(0.95, 0.5, 0.38),
+	Color(0.35, 0.65, 0.92),
+	Color(0.98, 0.75, 0.3),
+	Color(0.38, 0.76, 0.58),
+	Color(0.68, 0.5, 0.88),
+	Color(0.9, 0.58, 0.74),
 ]
 
 var _asphalt_material: StandardMaterial3D
@@ -69,7 +78,7 @@ func _create_playable_blocks() -> void:
 	for index in placements.size():
 		var scale_value := 10.0 + float(index % 4) * 1.15
 		var yaw := float((index * 90) % 360)
-		_add_building(BUILDINGS[index % BUILDINGS.size()], placements[index], scale_value, yaw, true)
+		_add_building(BUILDINGS[index % BUILDINGS.size()], placements[index], scale_value, yaw, true, index)
 
 func _create_horizon() -> void:
 	var placements: Array[Vector3] = []
@@ -81,9 +90,9 @@ func _create_horizon() -> void:
 		placements.append(Vector3(x, 0.0, 142.0))
 	for index in placements.size():
 		var scale_value := 11.0 + float(index % 5) * 1.5
-		_add_building(HORIZON_BUILDINGS[index % HORIZON_BUILDINGS.size()], placements[index], scale_value, float((index * 90) % 360), false)
+		_add_building(HORIZON_BUILDINGS[index % HORIZON_BUILDINGS.size()], placements[index], scale_value, float((index * 90) % 360), false, index + 2)
 
-func _add_building(file_name: String, world_position: Vector3, scale_value: float, yaw: float, collidable: bool) -> void:
+func _add_building(file_name: String, world_position: Vector3, scale_value: float, yaw: float, collidable: bool, palette_index: int) -> void:
 	var packed := load(CITY_ROOT + file_name) as PackedScene
 	if packed == null:
 		push_warning("City: no se pudo cargar " + file_name)
@@ -101,6 +110,7 @@ func _add_building(file_name: String, world_position: Vector3, scale_value: floa
 	var model := packed.instantiate() as Node3D
 	model.scale = Vector3.ONE * scale_value
 	holder.add_child(model)
+	_apply_building_color(model, palette_index, not collidable)
 	if collidable:
 		var shape_node := CollisionShape3D.new()
 		var box := BoxShape3D.new()
@@ -111,6 +121,21 @@ func _add_building(file_name: String, world_position: Vector3, scale_value: floa
 		shape_node.shape = box
 		shape_node.position.y = height * 0.5
 		holder.add_child(shape_node)
+
+func _apply_building_color(model: Node3D, palette_index: int, horizon: bool) -> void:
+	var tint: Color = BUILDING_PALETTE[palette_index % BUILDING_PALETTE.size()]
+	if horizon:
+		tint = tint.lerp(Color(0.34, 0.39, 0.5), 0.38)
+	for node in model.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := node as MeshInstance3D
+		if mesh_instance.mesh == null:
+			continue
+		var source := mesh_instance.mesh.surface_get_material(0) as StandardMaterial3D
+		var colored := source.duplicate() as StandardMaterial3D if source != null else StandardMaterial3D.new()
+		colored.albedo_color = colored.albedo_color * tint
+		colored.albedo_texture = CITY_COLORMAP
+		colored.roughness = maxf(colored.roughness, 0.72)
+		mesh_instance.material_override = colored
 
 func _add_surface(node_name: String, surface_position: Vector3, size: Vector3, material: Material) -> void:
 	var mesh_instance := MeshInstance3D.new()

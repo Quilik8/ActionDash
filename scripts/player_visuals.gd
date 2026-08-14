@@ -21,6 +21,9 @@ var _animation_player: AnimationPlayer
 var _slash_sprite: Sprite3D
 var _landing_sprite: Sprite3D
 var _speed_particles: GPUParticles3D
+var _enemy_arrow: Node3D
+var _arrow_update_timer: float = 0.0
+var _arrow_bob_time: float = 0.0
 
 @onready var _body: MeshInstance3D = $Model/Body
 @onready var _kinetic_aura: MeshInstance3D = $VFX/KineticAura
@@ -47,6 +50,7 @@ func _process(delta: float) -> void:
 	_landing_animation_timer = maxf(_landing_animation_timer - delta, 0.0)
 	_update_character_animation(player, delta)
 	_update_super_feedback(player)
+	_update_enemy_arrow(player, delta)
 	_update_effect(_proximity_flash, "_proximity_timer", delta, 8.0)
 	_update_effect(_wave_flash, "_wave_timer", delta, 7.0)
 	_update_effect(_landing_flash, "_landing_timer", delta, 8.5)
@@ -92,6 +96,7 @@ func _install_humanoid() -> void:
 	_body.visible = false
 	_humanoid = HUMANOID_SCENE.instantiate() as Node3D
 	_humanoid.name = "UALHumanoid"
+	_humanoid.scale = Vector3.ONE * 1.2
 	$Model.add_child(_humanoid)
 	var players := _humanoid.find_children("*", "AnimationPlayer", true, false)
 	if not players.is_empty():
@@ -134,6 +139,70 @@ func _create_asset_vfx() -> void:
 	process_material.scale_max = 0.8
 	_speed_particles.process_material = process_material
 	$VFX.add_child(_speed_particles)
+	_create_enemy_arrow()
+
+func _create_enemy_arrow() -> void:
+	_enemy_arrow = Node3D.new()
+	_enemy_arrow.name = "EnemyDirectionArrow"
+	_enemy_arrow.position.y = 3.05
+	var mesh_instance := MeshInstance3D.new()
+	mesh_instance.name = "ArrowMesh"
+	var arrow_mesh := ArrayMesh.new()
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = PackedVector3Array([
+		Vector3(0.0, 0.0, -1.15), Vector3(-0.62, 0.0, -0.25), Vector3(-0.2, 0.0, -0.25),
+		Vector3(0.0, 0.0, -1.15), Vector3(-0.2, 0.0, -0.25), Vector3(0.2, 0.0, -0.25),
+		Vector3(0.0, 0.0, -1.15), Vector3(0.2, 0.0, -0.25), Vector3(0.62, 0.0, -0.25),
+		Vector3(-0.2, 0.0, -0.25), Vector3(-0.2, 0.0, 0.75), Vector3(0.2, 0.0, 0.75),
+		Vector3(-0.2, 0.0, -0.25), Vector3(0.2, 0.0, 0.75), Vector3(0.2, 0.0, -0.25),
+	])
+	arrow_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.albedo_color = Color(1.0, 0.28, 0.08)
+	material.emission_enabled = true
+	material.emission = Color(1.0, 0.08, 0.01)
+	arrow_mesh.surface_set_material(0, material)
+	mesh_instance.mesh = arrow_mesh
+	_enemy_arrow.add_child(mesh_instance)
+	$VFX.add_child(_enemy_arrow)
+	_enemy_arrow.visible = false
+
+func _update_enemy_arrow(player: ActionDashPlayer, delta: float) -> void:
+	if player == null or not is_instance_valid(_enemy_arrow):
+		return
+	_arrow_bob_time += delta
+	_enemy_arrow.position.y = 3.05 + sin(_arrow_bob_time * 4.0) * 0.12
+	_arrow_update_timer = maxf(_arrow_update_timer - delta, 0.0)
+	if _arrow_update_timer > 0.0:
+		return
+	_arrow_update_timer = 0.1
+	var phase_controller := get_tree().current_scene.get_node_or_null("PhaseController") as ActionDashPhaseController
+	if phase_controller == null or phase_controller.get_state() != ActionDashPhaseController.RunState.COMBAT or phase_controller.get_time_remaining() > 30.0:
+		_enemy_arrow.visible = false
+		return
+	var nearest_enemy: Node3D
+	var nearest_distance := INF
+	for node in get_tree().get_nodes_in_group("enemies"):
+		if not is_instance_valid(node) or not node is Node3D or not (node as Node3D).visible:
+			continue
+		var candidate := node as Node3D
+		var distance := player.global_position.distance_squared_to(candidate.global_position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_enemy = candidate
+	if nearest_enemy == null:
+		_enemy_arrow.visible = false
+		return
+	var direction := nearest_enemy.global_position - player.global_position
+	direction.y = 0.0
+	if direction.length_squared() < 0.01:
+		_enemy_arrow.visible = false
+		return
+	_enemy_arrow.rotation.y = atan2(-direction.x, -direction.z)
+	_enemy_arrow.visible = true
 
 func _make_billboard(node_name: String, texture: Texture2D, color: Color, pixel_size: float) -> Sprite3D:
 	var sprite := Sprite3D.new()
