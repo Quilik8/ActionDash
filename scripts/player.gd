@@ -10,7 +10,7 @@ signal landing_attack(position: Vector3, targets_hit: int, damage_multiplier: fl
 @export var normal_speed: float = 18.0
 @export var max_speed: float = 36.0
 @export var acceleration: float = 34.0
-@export var super_initial_speed: float = 8.0
+@export var super_initial_speed: float = 18.0
 @export var super_turning_response: float = 12.0
 @export var deceleration: float = 7.0
 @export var super_exit_deceleration: float = 24.0

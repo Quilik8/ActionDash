@@ -9,7 +9,7 @@ No se inició minería 2D, dron, metaprogresión ni ramas nuevas.
 ## Movimiento
 
 - NORMAL (`Q` apagado): velocidad horizontal fija de 18 con input y parada inmediata sin input.
-- SUPER (`Q` encendido): modo preparado persistente. El primer input parte como mínimo a velocidad 8, acelera a 34 unidades por segundo al cuadrado hasta 36 y permite giros arcade con respuesta configurable de 12.
+- SUPER (`Q` encendido): modo preparado persistente. El primer input parte como mínimo a velocidad 18, acelera a 34 unidades por segundo al cuadrado hasta 36 y permite giros arcade con respuesta configurable de 12.
 - Soltar todas las direcciones pone la velocidad horizontal en cero inmediatamente sin apagar SUPER. El siguiente input vuelve a acelerar.
 - El movimiento sigue siendo relativo a cámara y MMB conserva la órbita.
 - La cámara usa velocidad real, no el booleano SUPER: interpola de FOV 70 a 82 y amplía la distancia hasta 1.35x entre velocidad NORMAL y máxima.

@@ -47,12 +47,14 @@ func _run() -> void:
 	Input.action_release("super_movement")
 	await physics_frame
 	_expect(player.is_super_movement_active(), "Q no activa SUPER")
-	Input.action_press("move_forward")
-	for _frame in 24:
+	Input.action_press("move_backward")
+	await physics_frame
+	_expect(player.get_horizontal_speed() >= 18.0 and player.get_horizontal_speed() < 19.0, "SUPER no comienza en velocidad mínima 18")
+	for _frame in 23:
 		await physics_frame
 	var accelerated_speed := player.get_horizontal_speed()
 	_expect(accelerated_speed > 18.0 and accelerated_speed <= player.max_speed + 0.1, "SUPER no acelera sobre NORMAL")
-	Input.action_release("move_forward")
+	Input.action_release("move_backward")
 	await physics_frame
 	_expect(player.get_horizontal_speed() < 0.05, "SUPER no se detiene inmediatamente sin input")
 	_expect(player.is_super_movement_active(), "SUPER se apaga al detenerse")
