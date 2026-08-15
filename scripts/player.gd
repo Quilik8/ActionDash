@@ -3,23 +3,17 @@ extends CharacterBody3D
 
 signal energy_attack_fired(origin: Vector3, direction: Vector3)
 signal melee_attack(position: Vector3, targets_hit: int, damage_multiplier: float, effective_radius: float, knockback_force: float)
-signal kinetic_state_changed(active: bool)
-signal landing_attack(position: Vector3, targets_hit: int, damage_multiplier: float, effective_radius: float)
+signal landed(position: Vector3, air_time: float, fall_speed: float)
 
 @export_category("Movement")
-@export var normal_speed: float = 18.0
+@export var initial_speed: float = 18.0
 @export var max_speed: float = 36.0
 @export var acceleration: float = 34.0
-@export var super_initial_speed: float = 18.0
-@export var super_turning_response: float = 12.0
-@export var deceleration: float = 7.0
-@export var super_exit_deceleration: float = 24.0
-@export_range(0.0, 1.0, 0.05) var momentum_preservation: float = 0.84
+@export var turning_response: float = 12.0
 @export var gravity: float = 24.0
 @export var jump_force: float = 10.5
 @export_range(0.0, 1.0, 0.05) var air_control: float = 0.4
 @export var air_acceleration: float = 11.0
-@export var air_deceleration: float = 1.8
 
 @export_category("Recovery")
 @export var fall_limit_y: float = -12.0
@@ -36,10 +30,7 @@ signal landing_attack(position: Vector3, targets_hit: int, damage_multiplier: fl
 @export_flags_3d_physics var aim_collision_mask: int = 3
 
 var _camera: Camera3D
-var _super_movement_active: bool = false
-var _kinetic_max_active: bool = false
 var _air_time: float = 0.0
-var _landing_horizontal_speed: float = 0.0
 var _landing_fall_speed: float = 0.0
 var _base_run_stats: Dictionary = {}
 var _last_move_direction: Vector3 = Vector3.FORWARD
@@ -50,11 +41,9 @@ var _last_move_direction: Vector3 = Vector3.FORWARD
 @onready var _ranged_power: ActionDashRangedPower = get_node(ranged_power_path) as ActionDashRangedPower
 
 func _ready() -> void:
-	_ensure_super_movement_input()
 	add_to_group("player")
 	_aim_marker.visible = show_aim_marker
 	_proximity_damage.melee_hit.connect(_on_melee_hit)
-	_proximity_damage.landing_impact.connect(_on_landing_impact)
 	_capture_base_run_stats()
 
 func _process(_delta: float) -> void:
@@ -67,7 +56,6 @@ func _process(_delta: float) -> void:
 		_aim_marker.global_position = aim_position
 
 func _physics_process(delta: float) -> void:
-	_handle_super_toggle()
 	var was_on_floor := is_on_floor()
 	_track_airborne_state(delta, was_on_floor)
 	_apply_gravity(delta)
@@ -75,7 +63,6 @@ func _physics_process(delta: float) -> void:
 	_handle_jump()
 	move_and_slide()
 	_handle_landing(was_on_floor)
-	_update_kinetic_state()
 	_check_fall_recovery()
 
 	if Input.is_action_just_pressed("melee_attack"):
@@ -88,6 +75,7 @@ func _check_fall_recovery() -> void:
 		global_position = respawn_position
 		velocity = Vector3.ZERO
 		_reset_airborne_state()
+		reset_physics_interpolation()
 
 func is_energy_ready() -> bool:
 	return is_instance_valid(_ranged_power) and _ranged_power.is_ready()
@@ -98,17 +86,12 @@ func get_energy_reload_remaining() -> float:
 func get_horizontal_speed() -> float:
 	return Vector3(velocity.x, 0.0, velocity.z).length()
 
-func get_normal_speed() -> float:
-	return normal_speed
+func get_initial_speed() -> float:
+	return initial_speed
 
-func get_extraordinary_max_speed() -> float:
-	return max_speed
-
-func is_super_movement_active() -> bool:
-	return _super_movement_active
-
-func get_movement_mode_name() -> String:
-	return "SUPER" if is_super_movement_active() else "NORMAL"
+func get_speed_progress() -> float:
+	var speed_range := maxf(max_speed - initial_speed, 0.001)
+	return clampf((get_horizontal_speed() - initial_speed) / speed_range, 0.0, 1.0)
 
 func get_melee_radius_multiplier() -> float:
 	return _proximity_damage.get_radius_multiplier(get_horizontal_speed(), max_speed)
@@ -119,14 +102,11 @@ func get_effective_melee_radius() -> float:
 func get_visual_melee_radius() -> float:
 	return _proximity_damage.get_visual_radius(get_horizontal_speed(), max_speed)
 
-func get_estimated_landing_radius() -> float:
-	return _proximity_damage.get_landing_radius(get_horizontal_speed(), max_speed)
-
-func get_kinetic_damage_multiplier() -> float:
+func get_melee_damage_multiplier() -> float:
 	return _proximity_damage.get_damage_multiplier(get_horizontal_speed(), max_speed)
 
 func get_current_melee_knockback_force() -> float:
-	return _proximity_damage.get_knockback_force(get_horizontal_speed(), normal_speed, max_speed)
+	return _proximity_damage.get_knockback_force(get_horizontal_speed(), initial_speed, max_speed)
 
 func get_melee_attack_direction() -> Vector3:
 	if get_horizontal_speed() > 0.5:
@@ -139,9 +119,6 @@ func get_melee_attack_direction() -> Vector3:
 		if camera_forward.length_squared() > 0.01:
 			return camera_forward.normalized()
 	return _last_move_direction
-
-func is_kinetic_max_active() -> bool:
-	return _kinetic_max_active
 
 func _apply_gravity(delta: float) -> void:
 	if not is_on_floor():
@@ -159,25 +136,18 @@ func _move_with_inertia(delta: float) -> void:
 
 	var horizontal_velocity := Vector3(velocity.x, 0.0, velocity.z)
 	var current_speed: float = horizontal_velocity.length()
-	if _super_movement_active:
-		if desired_direction.length_squared() > 0.0:
-			if current_speed < super_initial_speed:
-				horizontal_velocity = desired_direction * super_initial_speed
-				current_speed = super_initial_speed
-			var turn_blend := 1.0 - exp(-super_turning_response * delta)
-			var redirected_velocity := desired_direction * current_speed
-			horizontal_velocity = horizontal_velocity.lerp(redirected_velocity, turn_blend)
-			var desired_velocity := desired_direction * max_speed
-			var response := acceleration if is_on_floor() else air_acceleration * air_control
-			horizontal_velocity = horizontal_velocity.move_toward(desired_velocity, response * delta)
-		else:
-			horizontal_velocity = Vector3.ZERO
+	if desired_direction.length_squared() > 0.0:
+		if current_speed < initial_speed:
+			horizontal_velocity = desired_direction * initial_speed
+			current_speed = initial_speed
+		var turn_blend := 1.0 - exp(-turning_response * delta)
+		var redirected_velocity := desired_direction * current_speed
+		horizontal_velocity = horizontal_velocity.lerp(redirected_velocity, turn_blend)
+		var desired_velocity := desired_direction * max_speed
+		var response := acceleration if is_on_floor() else air_acceleration * air_control
+		horizontal_velocity = horizontal_velocity.move_toward(desired_velocity, response * delta)
 	else:
-		var has_input := desired_direction.length_squared() > 0.0
-		if has_input:
-			horizontal_velocity = desired_direction * normal_speed
-		else:
-			horizontal_velocity = Vector3.ZERO
+		horizontal_velocity = Vector3.ZERO
 
 	if horizontal_velocity.length() > max_speed:
 		horizontal_velocity = horizontal_velocity.normalized() * max_speed
@@ -197,11 +167,6 @@ func _get_camera_relative_direction(input_vector: Vector2) -> Vector3:
 	camera_right = camera_right.normalized()
 	return camera_right * input_vector.x + camera_forward * -input_vector.y
 
-func _handle_super_toggle() -> void:
-	if not Input.is_action_just_pressed("super_movement"):
-		return
-	_super_movement_active = not _super_movement_active
-
 func _handle_jump() -> void:
 	if Input.is_action_just_pressed("jump") and is_on_floor():
 		velocity.y = jump_force
@@ -210,33 +175,18 @@ func _track_airborne_state(delta: float, was_on_floor: bool) -> void:
 	if was_on_floor:
 		return
 	_air_time += delta
-	_landing_horizontal_speed = maxf(_landing_horizontal_speed, get_horizontal_speed())
 	_landing_fall_speed = maxf(_landing_fall_speed, -velocity.y)
 
 func _handle_landing(was_on_floor: bool) -> void:
 	if not was_on_floor and is_on_floor():
-		_proximity_damage.try_landing_attack(
-			global_position,
-			_landing_horizontal_speed,
-			_landing_fall_speed,
-			_air_time,
-			max_speed
-		)
+		landed.emit(global_position, _air_time, _landing_fall_speed)
 		_reset_airborne_state()
 	elif is_on_floor():
 		_reset_airborne_state()
 
 func _reset_airborne_state() -> void:
 	_air_time = 0.0
-	_landing_horizontal_speed = 0.0
 	_landing_fall_speed = 0.0
-
-func _update_kinetic_state() -> void:
-	var active := _super_movement_active and _proximity_damage.is_kinetic_max(get_horizontal_speed(), max_speed)
-	if active == _kinetic_max_active:
-		return
-	_kinetic_max_active = active
-	kinetic_state_changed.emit(active)
 
 func _fire_energy_projectile() -> bool:
 	if not is_energy_ready():
@@ -278,13 +228,11 @@ func apply_run_stat_modifier(stat_id: StringName, operation: String, value: floa
 			acceleration = _modified_value(acceleration, operation, value)
 		&"jump_force":
 			jump_force = _modified_value(jump_force, operation, value)
-		&"momentum":
-			momentum_preservation = clampf(_modified_value(momentum_preservation, operation, value), 0.0, 1.0)
 		&"melee_damage":
 			_proximity_damage.base_damage = _modified_value(_proximity_damage.base_damage, operation, value)
 		&"melee_radius":
 			_proximity_damage.damage_radius = _modified_value(_proximity_damage.damage_radius, operation, value)
-		&"melee_knockback", &"kinetic_max_bonus":
+		&"melee_knockback":
 			_proximity_damage.maximum_speed_knockback_bonus = _modified_value(_proximity_damage.maximum_speed_knockback_bonus, operation, value)
 		&"ranged_damage":
 			_ranged_power.damage = _modified_value(_ranged_power.damage, operation, value)
@@ -304,10 +252,9 @@ func get_run_stat(stat_id: StringName) -> float:
 		&"max_speed": return max_speed
 		&"acceleration": return acceleration
 		&"jump_force": return jump_force
-		&"momentum": return momentum_preservation
 		&"melee_damage": return _proximity_damage.base_damage
 		&"melee_radius": return _proximity_damage.damage_radius
-		&"melee_knockback", &"kinetic_max_bonus": return _proximity_damage.maximum_speed_knockback_bonus
+		&"melee_knockback": return _proximity_damage.maximum_speed_knockback_bonus
 		&"ranged_damage": return _ranged_power.damage
 		&"ranged_cooldown": return _ranged_power.cooldown
 		&"ranged_speed": return (_ranged_power as ActionDashEnergySpherePower).projectile_speed if _ranged_power is ActionDashEnergySpherePower else 0.0
@@ -319,7 +266,7 @@ func restore_base_run_stats() -> void:
 		_set_run_stat(stat_id, _base_run_stats[stat_id])
 
 func _capture_base_run_stats() -> void:
-	for stat_id in [&"max_speed", &"acceleration", &"jump_force", &"momentum", &"melee_damage", &"melee_radius", &"melee_knockback", &"ranged_damage", &"ranged_cooldown", &"ranged_speed", &"ranged_size"]:
+	for stat_id in [&"max_speed", &"acceleration", &"jump_force", &"melee_damage", &"melee_radius", &"melee_knockback", &"ranged_damage", &"ranged_cooldown", &"ranged_speed", &"ranged_size"]:
 		_base_run_stats[stat_id] = get_run_stat(stat_id)
 
 func _set_run_stat(stat_id: StringName, value: float) -> void:
@@ -329,23 +276,11 @@ func _set_run_stat(stat_id: StringName, value: float) -> void:
 func _modified_value(current: float, operation: String, value: float) -> float:
 	return current * value if operation == "Multiply" else current + value
 
-func _ensure_super_movement_input() -> void:
-	if InputMap.has_action("super_movement"):
-		return
-	InputMap.add_action("super_movement")
-	var key_event := InputEventKey.new()
-	key_event.keycode = KEY_Q
-	key_event.physical_keycode = KEY_Q
-	InputMap.action_add_event("super_movement", key_event)
-
 func _on_ranged_power_activated(origin: Vector3, direction: Vector3) -> void:
 	energy_attack_fired.emit(origin, direction)
 
 func _on_melee_hit(world_position: Vector3, targets_hit: int, multiplier: float, effective_radius: float, knockback_force: float) -> void:
 	melee_attack.emit(world_position, targets_hit, multiplier, effective_radius, knockback_force)
-
-func _on_landing_impact(world_position: Vector3, targets_hit: int, multiplier: float, effective_radius: float) -> void:
-	landing_attack.emit(world_position, targets_hit, multiplier, effective_radius)
 
 func _get_mouse_world_position() -> Vector3:
 	if not is_instance_valid(_camera):

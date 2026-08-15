@@ -1,5 +1,7 @@
 # Estado del rework 3D de ActionDash
 
+> Documento histórico de la iteración anterior. El estado vigente está en `docs/GAMEPLAY_CONSOLIDATION.md`; NORMAL/SUPER y Landing Attack ya no forman parte del gameplay actual.
+
 ## Loop jugable actual
 
 La sección 3D funciona ahora como una defensa provisional. El jugador protege un núcleo central con 4000 puntos de integridad mientras intercepta grupos que llegan desde los cuatro sectores del perímetro. La integridad en cero provoca derrota; el temporizador continúa mostrando el tiempo de fase, pero ya no derrota al jugador al llegar a cero.

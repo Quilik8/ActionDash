@@ -13,8 +13,13 @@ signal activated(origin: Vector3, direction: Vector3)
 
 var _cooldown_remaining: float = 0.0
 
+func _ready() -> void:
+	set_physics_process(false)
+
 func _physics_process(delta: float) -> void:
 	_cooldown_remaining = maxf(_cooldown_remaining - delta, 0.0)
+	if _cooldown_remaining <= 0.0:
+		set_physics_process(false)
 
 func is_ready() -> bool:
 	return _cooldown_remaining <= 0.0
@@ -37,3 +42,4 @@ func apply_runtime_modifiers(modifiers: Dictionary) -> void:
 
 func _begin_cooldown() -> void:
 	_cooldown_remaining = cooldown
+	set_physics_process(_cooldown_remaining > 0.0)

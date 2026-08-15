@@ -40,8 +40,9 @@ func _ready() -> void:
 		_orbit_pitch = asin(clampf(follow_offset.y / base_distance, -1.0, 1.0))
 	_camera.fov = normal_fov
 	if _target != null:
-		global_position = _target.global_position + follow_offset
-		_smoothed_look_position = _target.global_position + Vector3.UP * look_height
+		var target_position := _get_target_position()
+		global_position = target_position + follow_offset
+		_smoothed_look_position = target_position + Vector3.UP * look_height
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
@@ -63,8 +64,7 @@ func _process(delta: float) -> void:
 		if _target == null:
 			return
 
-	var speed_range := maxf(_target.get_extraordinary_max_speed() - _target.get_normal_speed(), 0.001)
-	var speed_ratio := clampf((_target.get_horizontal_speed() - _target.get_normal_speed()) / speed_range, 0.0, 1.0)
+	var speed_ratio := _target.get_speed_progress()
 	var desired_distance_multiplier := lerpf(1.0, high_speed_distance_multiplier, speed_ratio)
 	var framing_blend := 1.0 - exp(-framing_smoothing * delta)
 	_current_distance_multiplier = lerpf(_current_distance_multiplier, desired_distance_multiplier, framing_blend)
@@ -76,11 +76,12 @@ func _process(delta: float) -> void:
 		sin(_orbit_pitch),
 		cos(_orbit_yaw) * cos(_orbit_pitch)
 	)
-	var desired_position := _target.global_position + orbit_direction * base_distance * _current_distance_multiplier
-	desired_position = _get_collision_safe_position(_target.global_position + Vector3.UP * look_height, desired_position)
+	var target_position := _get_target_position()
+	var desired_position := target_position + orbit_direction * base_distance * _current_distance_multiplier
+	desired_position = _get_collision_safe_position(target_position + Vector3.UP * look_height, desired_position)
 	var blend := 1.0 - exp(-follow_smoothing * delta)
 	global_position = global_position.lerp(desired_position, blend)
-	var desired_look_position := _target.global_position + Vector3.UP * look_height
+	var desired_look_position := target_position + Vector3.UP * look_height
 	var look_blend := 1.0 - exp(-look_smoothing * delta)
 	_smoothed_look_position = _smoothed_look_position.lerp(desired_look_position, look_blend)
 	look_at(_smoothed_look_position, Vector3.UP)
@@ -120,12 +121,17 @@ func _get_collision_safe_position(look_origin: Vector3, desired_position: Vector
 func snap_to_target() -> void:
 	if not is_instance_valid(_target):
 		return
+	reset_physics_interpolation()
 	var base_distance := follow_offset.length()
 	var orbit_direction := Vector3(
 		sin(_orbit_yaw) * cos(_orbit_pitch),
 		sin(_orbit_pitch),
 		cos(_orbit_yaw) * cos(_orbit_pitch)
 	)
-	global_position = _target.global_position + orbit_direction * base_distance * _current_distance_multiplier
-	_smoothed_look_position = _target.global_position + Vector3.UP * look_height
+	var target_position := _get_target_position()
+	global_position = target_position + orbit_direction * base_distance * _current_distance_multiplier
+	_smoothed_look_position = target_position + Vector3.UP * look_height
 	look_at(_smoothed_look_position, Vector3.UP)
+
+func _get_target_position() -> Vector3:
+	return _target.get_global_transform_interpolated().origin

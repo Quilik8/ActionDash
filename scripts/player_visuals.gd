@@ -6,7 +6,6 @@ extends Node3D
 const HUMANOID_SCENE := preload("res://assets/animations/quaternius_ual1/UAL1_Standard.glb")
 const SLASH_TEXTURE := preload("res://assets/vfx/brackeys/particles/slash_02_a.png")
 const TRACE_TEXTURE := preload("res://assets/vfx/brackeys/particles/trace_03_a.png")
-const SPARK_TEXTURE := preload("res://assets/vfx/brackeys/particles/spark_03_a.png")
 
 var _proximity_timer: float = 0.0
 var _action_timer: float = 0.0
@@ -17,8 +16,7 @@ var _humanoid: Node3D
 var _animation_player: AnimationPlayer
 var _slash_sprite: Sprite3D
 var _speed_particles: GPUParticles3D
-var _landing_debris: GPUParticles3D
-var _landing_bursts: Array[GPUParticles3D] = []
+var _landing_dust: GPUParticles3D
 var _enemy_arrow: Node3D
 var _arrow_update_timer: float = 0.0
 var _arrow_bob_time: float = 0.0
@@ -29,7 +27,7 @@ var _arrow_bob_time: float = 0.0
 func _ready() -> void:
 	var player := get_parent() as ActionDashPlayer
 	player.melee_attack.connect(_on_melee_attack)
-	player.landing_attack.connect(_on_landing_attack)
+	player.landed.connect(_on_landed)
 	_install_humanoid()
 	_create_asset_vfx()
 	_hide_transient_vfx()
@@ -40,7 +38,7 @@ func _process(delta: float) -> void:
 	_action_timer = maxf(_action_timer - delta, 0.0)
 	_landing_animation_timer = maxf(_landing_animation_timer - delta, 0.0)
 	_update_character_animation(player, delta)
-	_update_super_feedback(player)
+	_update_speed_feedback(player)
 	_update_enemy_arrow(player, delta)
 	_update_effect(_proximity_flash, "_proximity_timer", delta, 8.0)
 
@@ -53,18 +51,15 @@ func _on_melee_attack(_position: Vector3, _targets_hit: int, _damage_multiplier:
 	_slash_sprite.scale = Vector3.ONE * clampf(effective_radius * 0.25, 1.3, 2.8)
 	_play_action(&"Punch_Cross", 0.34)
 
-func _on_landing_attack(_position: Vector3, _targets_hit: int, _damage_multiplier: float, effective_radius: float) -> void:
+func _on_landed(_position: Vector3, air_time: float, fall_speed: float) -> void:
 	if not enable_temporary_vfx:
 		return
-	_landing_debris.amount_ratio = clampf(effective_radius / 5.0, 0.7, 1.0)
-	_landing_debris.restart()
-	for burst in _landing_bursts:
-		burst.amount_ratio = clampf(effective_radius / 5.0, 0.75, 1.0)
-		burst.restart()
+	if air_time < 0.08 or fall_speed < 1.0:
+		return
+	_landing_dust.restart()
 	var camera := get_viewport().get_camera_3d()
 	if camera != null and camera.get_parent() is ActionDashCameraFollow:
-		(camera.get_parent() as ActionDashCameraFollow).add_shake(0.14, 0.12)
-	_play_action(&"Jump_Land", 0.4)
+		(camera.get_parent() as ActionDashCameraFollow).add_shake(0.045, 0.08)
 
 func _install_humanoid() -> void:
 	_body.visible = false
@@ -82,7 +77,7 @@ func _create_asset_vfx() -> void:
 	$VFX.add_child(_slash_sprite)
 
 	_speed_particles = GPUParticles3D.new()
-	_speed_particles.name = "SuperSpeedParticles"
+	_speed_particles.name = "SpeedTrailParticles"
 	_speed_particles.amount = 18
 	_speed_particles.lifetime = 0.42
 	_speed_particles.randomness = 0.25
@@ -109,15 +104,15 @@ func _create_asset_vfx() -> void:
 	_speed_particles.process_material = process_material
 	$VFX.add_child(_speed_particles)
 
-	_landing_debris = GPUParticles3D.new()
-	_landing_debris.name = "LandingDebrisParticles"
-	_landing_debris.amount = 12
-	_landing_debris.lifetime = 0.5
-	_landing_debris.one_shot = true
-	_landing_debris.explosiveness = 0.92
-	_landing_debris.visibility_aabb = AABB(Vector3(-5, -2, -5), Vector3(10, 6, 10))
+	_landing_dust = GPUParticles3D.new()
+	_landing_dust.name = "LandingDustParticles"
+	_landing_dust.amount = 8
+	_landing_dust.lifetime = 0.38
+	_landing_dust.one_shot = true
+	_landing_dust.explosiveness = 0.9
+	_landing_dust.visibility_aabb = AABB(Vector3(-3, -1, -3), Vector3(6, 4, 6))
 	var debris_quad := QuadMesh.new()
-	debris_quad.size = Vector2(0.42, 0.42)
+	debris_quad.size = Vector2(0.3, 0.3)
 	debris_quad.orientation = PlaneMesh.FACE_Z
 	var debris_material := StandardMaterial3D.new()
 	debris_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -126,102 +121,21 @@ func _create_asset_vfx() -> void:
 	debris_material.albedo_color = Color(0.55, 0.42, 0.3, 0.58)
 	debris_material.albedo_texture = preload("res://assets/vfx/brackeys/particles/smoke_04_a.png")
 	debris_quad.material = debris_material
-	_landing_debris.draw_pass_1 = debris_quad
+	_landing_dust.draw_pass_1 = debris_quad
 	var debris_process := ParticleProcessMaterial.new()
 	debris_process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	debris_process.emission_sphere_radius = 0.2
+	debris_process.emission_sphere_radius = 0.15
 	debris_process.direction = Vector3.UP
 	debris_process.spread = 75.0
-	debris_process.initial_velocity_min = 0.8
-	debris_process.initial_velocity_max = 2.4
-	debris_process.gravity = Vector3(0.0, 1.2, 0.0)
-	debris_process.scale_min = 0.7
-	debris_process.scale_max = 1.35
-	_landing_debris.process_material = debris_process
-	_landing_debris.position.y = 0.18
-	$VFX.add_child(_landing_debris)
-
-	var fragment_directions := [
-		Vector3(0.1, 0.85, -1.0),
-		Vector3(1.0, 0.75, 0.25),
-		Vector3(-0.8, 0.9, 0.65),
-		Vector3(0.45, 0.72, 0.95),
-	]
-	var fragment_positions := [
-		Vector3(0.0, 0.16, -0.2),
-		Vector3(0.16, 0.18, 0.03),
-		Vector3(-0.12, 0.18, 0.12),
-		Vector3(0.08, 0.18, 0.18),
-	]
-	for index in fragment_directions.size():
-		var burst := _make_landing_burst(
-			"LandingJet" + str(index + 1),
-			SPARK_TEXTURE if index % 2 == 0 else TRACE_TEXTURE,
-			Color(1.0, 0.52 + float(index) * 0.06, 0.16, 0.9),
-			6 if index % 2 == 0 else 5,
-			0.32 + float(index % 2) * 0.08,
-			fragment_directions[index],
-			18.0 + float(index) * 4.0,
-			3.0 + float(index) * 0.25,
-			6.0 + float(index) * 0.45,
-			Vector3(0.0, -8.0, 0.0),
-			0.35,
-			0.85,
-			fragment_positions[index],
-			Vector2(0.16, 0.48) if index % 2 == 1 else Vector2(0.22, 0.22)
-		)
-		_landing_bursts.append(burst)
+	debris_process.initial_velocity_min = 0.5
+	debris_process.initial_velocity_max = 1.5
+	debris_process.gravity = Vector3(0.0, 0.8, 0.0)
+	debris_process.scale_min = 0.55
+	debris_process.scale_max = 1.0
+	_landing_dust.process_material = debris_process
+	_landing_dust.position.y = 0.14
+	$VFX.add_child(_landing_dust)
 	_create_enemy_arrow()
-
-func _make_landing_burst(
-	node_name: String,
-	texture: Texture2D,
-	color: Color,
-	amount: int,
-	lifetime: float,
-	direction: Vector3,
-	spread: float,
-	velocity_min: float,
-	velocity_max: float,
-	gravity: Vector3,
-	scale_min: float,
-	scale_max: float,
-	position: Vector3,
-	draw_size: Vector2
-) -> GPUParticles3D:
-	var particles := GPUParticles3D.new()
-	particles.name = node_name
-	particles.amount = amount
-	particles.lifetime = lifetime
-	particles.randomness = 0.6
-	particles.one_shot = true
-	particles.explosiveness = 0.96
-	particles.visibility_aabb = AABB(Vector3(-6, -3, -6), Vector3(12, 8, 12))
-	var quad := QuadMesh.new()
-	quad.size = draw_size
-	quad.orientation = PlaneMesh.FACE_Z
-	var material := StandardMaterial3D.new()
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	material.albedo_color = color
-	material.albedo_texture = texture
-	quad.material = material
-	particles.draw_pass_1 = quad
-	var process_material := ParticleProcessMaterial.new()
-	process_material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	process_material.emission_sphere_radius = 0.16
-	process_material.direction = direction.normalized()
-	process_material.spread = spread
-	process_material.initial_velocity_min = velocity_min
-	process_material.initial_velocity_max = velocity_max
-	process_material.gravity = gravity
-	process_material.scale_min = scale_min
-	process_material.scale_max = scale_max
-	particles.process_material = process_material
-	particles.position = position
-	$VFX.add_child(particles)
-	return particles
 
 func _create_enemy_arrow() -> void:
 	_enemy_arrow = Node3D.new()
@@ -319,18 +233,15 @@ func _update_character_animation(player: ActionDashPlayer, delta: float) -> void
 		_play_animation(&"Jump_Land", 0.08, 1.25)
 	elif horizontal.length() < 0.25:
 		_play_animation(&"Idle", 0.16)
-	elif player.is_super_movement_active():
-		_play_animation(&"Sprint", 0.12, clampf(horizontal.length() / player.normal_speed, 1.0, 1.75))
 	else:
-		_play_animation(&"Jog_Fwd", 0.12, clampf(horizontal.length() / player.normal_speed, 0.8, 1.25))
+		_play_animation(&"Sprint", 0.12, clampf(horizontal.length() / player.initial_speed, 1.0, 1.75))
 
-func _update_super_feedback(player: ActionDashPlayer) -> void:
+func _update_speed_feedback(player: ActionDashPlayer) -> void:
 	if player == null:
 		return
-	var speed_ratio := clampf(player.get_horizontal_speed() / maxf(player.max_speed, 0.01), 0.0, 1.0)
-	var super_visible := enable_temporary_vfx and player.is_super_movement_active()
-	_speed_particles.emitting = super_visible and speed_ratio > 0.35
-	_speed_particles.amount_ratio = clampf((speed_ratio - 0.25) / 0.75, 0.1, 1.0)
+	var speed_progress := player.get_speed_progress()
+	_speed_particles.emitting = enable_temporary_vfx and speed_progress > 0.08
+	_speed_particles.amount_ratio = clampf(speed_progress, 0.1, 1.0)
 
 func _play_action(animation: StringName, duration: float) -> void:
 	if _action_timer > duration * 0.45:

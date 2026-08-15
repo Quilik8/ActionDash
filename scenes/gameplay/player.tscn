@@ -54,21 +54,17 @@ radius = 0.6
 height = 1.2
 
 [node name="Player" type="CharacterBody3D" groups=["player"]]
+physics_interpolation_mode = 1
 collision_mask = 5
 script = ExtResource("1_player")
-normal_speed = 18.0
+initial_speed = 18.0
 max_speed = 36.0
 acceleration = 34.0
-super_initial_speed = 18.0
-super_turning_response = 12.0
-deceleration = 7.0
-super_exit_deceleration = 24.0
-momentum_preservation = 0.84
+turning_response = 12.0
 gravity = 24.0
 jump_force = 10.5
 air_control = 0.4
 air_acceleration = 11.0
-air_deceleration = 1.8
 fall_limit_y = -12.0
 respawn_position = Vector3(0, 0, 0)
 aim_distance = 60.0
@@ -128,11 +124,6 @@ lethal_knockback_force = 30.0
 lethal_speed_knockback_bonus = 45.0
 lethal_knockback_duration = 0.75
 lethal_knockback_vertical_boost = 6.0
-landing_radius = 5.0
-landing_knockback_force = 9.0
-landing_lethal_knockback_force = 14.0
-landing_lethal_knockback_duration = 0.7
-landing_lethal_vertical_boost = 4.5
 
 [node name="RangedPower" type="Node" parent="Gameplay"]
 script = ExtResource("5_power")

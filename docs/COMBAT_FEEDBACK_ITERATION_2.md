@@ -1,5 +1,7 @@
 # ActionDash — combate, LOD y ranged guiado
 
+> Registro histórico. La consolidación vigente elimina SUPER y el Landing Attack ofensivo; consultar `docs/GAMEPLAY_CONSOLIDATION.md`.
+
 Fecha: 2026-08-14
 Motor: Godot 4.7.1, `gl_compatibility`
 

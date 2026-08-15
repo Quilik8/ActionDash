@@ -1,5 +1,7 @@
 # Iteración de feedback de combate 3D
 
+> Registro histórico. La consolidación vigente elimina SUPER y el Landing Attack ofensivo; consultar `docs/GAMEPLAY_CONSOLIDATION.md`.
+
 ## Inputs
 
 - LMB / `melee_attack`: un golpe por pulsación, cooldown 0.28 s.

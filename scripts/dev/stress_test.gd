@@ -34,8 +34,6 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not _effects_active or not is_instance_valid(_player):
 		return
-	_player._super_movement_active = true
-	_player._kinetic_max_active = true
 	var movement_delta := _player.global_position - _previous_player_position
 	movement_delta.y = 0.0
 	if movement_delta.length() < 10.0:
@@ -46,6 +44,7 @@ func _process(delta: float) -> void:
 	if Vector2(_player.global_position.x, _player.global_position.z).length() > 110.0:
 		_player.global_position = Vector3.ZERO
 		_player.velocity = Vector3(0.0, 0.0, -_player.max_speed)
+		_player.reset_physics_interpolation()
 		_previous_player_position = _player.global_position
 		_camera_rig.snap_to_target()
 		_reset_count += 1
@@ -71,7 +70,7 @@ func _force_stable_player_effects() -> void:
 		var effect := vfx.get_node(NodePath(node_name)) as MeshInstance3D
 		effect.visible = true
 		effect.scale = stable_scales[node_name]
-	(vfx.get_node("SuperSpeedParticles") as GPUParticles3D).emitting = true
+	(vfx.get_node("SpeedTrailParticles") as GPUParticles3D).emitting = true
 	var slash := vfx.get_node_or_null("MeleeSlash") as Sprite3D
 	if slash != null:
 		slash.visible = true
@@ -105,12 +104,8 @@ func _run_test() -> void:
 	_spawner = _playground.get_node("EnemySpawner") as ActionDashEnemySpawner
 	_controller = _playground.get_node("PhaseController") as ActionDashPhaseController
 	_camera_rig = _playground.get_node("CameraRig") as ActionDashCameraFollow
-	(_player.get_node("Gameplay/ProximityDamage") as ActionDashProximityDamage).set_physics_process(false)
 	(_player.get_node("Gameplay/RangedPower") as ActionDashRangedPower).damage = 0.0
-	_player._super_movement_active = true
-	_player._kinetic_max_active = true
 	_player.velocity = Vector3(0.0, 0.0, -_player.max_speed)
-	_player.kinetic_state_changed.emit(true)
 	Input.action_press("move_forward")
 	_previous_player_position = _player.global_position
 	_effects_active = true
@@ -235,9 +230,9 @@ func _get_player_effect_state() -> Dictionary:
 		if node is ActionDashProjectile:
 			projectile_count += 1
 	return {
-		"speed_particles": (vfx.get_node("SuperSpeedParticles") as GPUParticles3D).emitting,
+		"speed_particles": (vfx.get_node("SpeedTrailParticles") as GPUParticles3D).emitting,
 		"melee_flash": (vfx.get_node("ProximityFlash") as MeshInstance3D).visible,
-		"landing_debris": (vfx.get_node("LandingDebrisParticles") as GPUParticles3D).emitting,
+		"landing_dust": (vfx.get_node("LandingDustParticles") as GPUParticles3D).emitting,
 		"enemy_arrow": (vfx.get_node("EnemyDirectionArrow") as Node3D).visible,
 		"energy_spheres": projectile_count,
 	}

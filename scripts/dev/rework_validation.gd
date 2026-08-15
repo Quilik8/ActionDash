@@ -33,6 +33,7 @@ func _initialize() -> void:
 	call_deferred("_run")
 
 func _run() -> void:
+	Engine.max_fps = 144
 	var playground: Node = (load("res://scenes/gameplay/playground.tscn") as PackedScene).instantiate()
 	root.add_child(playground)
 	await process_frame
@@ -43,46 +44,63 @@ func _run() -> void:
 	var controller := playground.get_node("PhaseController") as ActionDashPhaseController
 	spawner.clear_phase()
 
-	Input.action_press("move_forward")
-	await physics_frame
-	_expect(is_equal_approx(player.get_horizontal_speed(), 18.0), "NORMAL no mantiene velocidad fija 18")
-	Input.action_release("move_forward")
-	await physics_frame
-	_expect(player.get_horizontal_speed() < 0.05, "NORMAL no se detiene al soltar input")
+	_expect(not InputMap.has_action("super_movement"), "Q sigue registrado como accion de movimiento")
+	_expect(bool(ProjectSettings.get_setting("physics/common/physics_interpolation", false)), "La interpolacion fisica global no esta activa")
+	_expect(player.physics_interpolation_mode == Node.PHYSICS_INTERPOLATION_MODE_ON, "Player no fuerza interpolacion fisica")
+	_expect(playground.get_node("CameraRig").physics_interpolation_mode == Node.PHYSICS_INTERPOLATION_MODE_OFF, "CameraRig controlado en process hereda interpolacion")
 
-	Input.action_press("super_movement")
-	await physics_frame
-	Input.action_release("super_movement")
-	await physics_frame
-	_expect(player.is_super_movement_active(), "Q no activa SUPER")
+	var movement_start := player.global_position
 	Input.action_press("move_backward")
 	await physics_frame
-	_expect(player.get_horizontal_speed() >= 18.0 and player.get_horizontal_speed() < 19.0, "SUPER no comienza en velocidad mínima 18")
-	for _frame in 23:
+	_expect(player.get_horizontal_speed() >= player.initial_speed and player.get_horizontal_speed() < player.initial_speed + 1.0, "El movimiento base no comienza en la velocidad inicial")
+	for _frame in 40:
 		await physics_frame
-	var accelerated_speed := player.get_horizontal_speed()
-	_expect(accelerated_speed > 18.0 and accelerated_speed <= player.max_speed + 0.1, "SUPER no acelera sobre NORMAL")
+	_expect(is_equal_approx(player.get_horizontal_speed(), player.max_speed), "El movimiento base no acelera hasta la velocidad maxima")
+	var stable_positions: Array[Vector3] = []
+	for _frame in 30:
+		await physics_frame
+		stable_positions.append(player.global_position)
+	_expect(_axis_span(stable_positions, 1) < 0.001, "El cuerpo oscila verticalmente a velocidad maxima")
+	_expect(_axis_span(stable_positions, 0) < 0.001, "El cuerpo deriva lateralmente a velocidad maxima")
+	var interpolated_positions: Array[Vector3] = []
+	for _frame in 90:
+		await process_frame
+		interpolated_positions.append(player.get_global_transform_interpolated().origin)
+	_expect(_maximum_step(interpolated_positions) < 0.4, "La ruta visual interpolada conserva saltos de 0.6 m")
 	Input.action_release("move_backward")
 	await physics_frame
-	_expect(player.get_horizontal_speed() < 0.05, "SUPER no se detiene inmediatamente sin input")
-	_expect(player.is_super_movement_active(), "SUPER se apaga al detenerse")
+	await physics_frame
+	_expect(player.get_horizontal_speed() < 0.05, "El movimiento base no se detiene inmediatamente al soltar input")
 	Input.action_press("move_right")
 	await physics_frame
-	_expect(player.get_horizontal_speed() >= player.super_initial_speed - 0.1, "SUPER no reinicia al pulsar otra dirección")
+	await physics_frame
+	_expect(player.get_horizontal_speed() >= player.initial_speed and player.get_horizontal_speed() < player.initial_speed + 2.0, "El movimiento no reinicia desde la velocidad inicial")
+	for _frame in 12:
+		await physics_frame
+	var camera_right := playground.get_viewport().get_camera_3d().global_basis.x
+	camera_right.y = 0.0
+	_expect(player.get_melee_attack_direction().dot(camera_right.normalized()) > 0.8, "El cambio de direccion no responde con rapidez")
 	Input.action_release("move_right")
 	await physics_frame
-	Input.action_press("super_movement")
+	var base_max_speed := player.max_speed
+	var base_acceleration := player.acceleration
+	player.apply_run_stat_modifier(&"max_speed", "Add", 3.0)
+	player.apply_run_stat_modifier(&"acceleration", "Add", 4.0)
+	_expect(is_equal_approx(player.max_speed, base_max_speed + 3.0), "El upgrade de velocidad maxima no modifica el movimiento base")
+	_expect(is_equal_approx(player.acceleration, base_acceleration + 4.0), "El upgrade de aceleracion no modifica el movimiento base")
+	player.restore_base_run_stats()
+	_expect(is_equal_approx(player.max_speed, base_max_speed) and is_equal_approx(player.acceleration, base_acceleration), "Los stats base no se restauran")
+	player.global_position = movement_start
+	player.velocity = Vector3.ZERO
+	player.reset_physics_interpolation()
 	await physics_frame
-	Input.action_release("super_movement")
-	await physics_frame
-	_expect(not player.is_super_movement_active(), "Q no desactiva SUPER")
 
 	var combat := player.get_node("Gameplay/ProximityDamage") as ActionDashProximityDamage
-	var normal_knockback := combat.get_knockback_force(player.normal_speed, player.normal_speed, player.max_speed)
-	var maximum_knockback := combat.get_knockback_force(player.max_speed, player.normal_speed, player.max_speed)
-	_expect(maximum_knockback > normal_knockback * 3.0, "La velocidad alta no aumenta claramente el knockback")
-	_expect(is_equal_approx(combat.get_lethal_knockback_force(player.normal_speed, player.normal_speed, player.max_speed), 30.0), "El knockback letal base no empieza en 30")
-	_expect(is_equal_approx(combat.get_lethal_knockback_force(player.max_speed, player.normal_speed, player.max_speed), 75.0), "El knockback letal SUPER no llega a 75")
+	var initial_knockback := combat.get_knockback_force(player.initial_speed, player.initial_speed, player.max_speed)
+	var maximum_knockback := combat.get_knockback_force(player.max_speed, player.initial_speed, player.max_speed)
+	_expect(maximum_knockback > initial_knockback * 3.0, "La velocidad real alta no aumenta claramente el knockback")
+	_expect(is_equal_approx(combat.get_lethal_knockback_force(player.initial_speed, player.initial_speed, player.max_speed), 30.0), "El knockback letal base no empieza en 30")
+	_expect(is_equal_approx(combat.get_lethal_knockback_force(player.max_speed, player.initial_speed, player.max_speed), 75.0), "El knockback letal maximo no llega a 75")
 	var melee_enemy := DummyEnemy.new()
 	playground.add_child(melee_enemy)
 	melee_enemy.global_position = player.global_position + player.get_melee_attack_direction() * 3.0
@@ -110,10 +128,18 @@ func _run() -> void:
 	var landing_enemy := DummyEnemy.new()
 	playground.add_child(landing_enemy)
 	landing_enemy.global_position = player.global_position + Vector3(2.0, 0.0, 0.0)
-	var landed := combat.try_landing_attack(player.global_position, player.max_speed, 8.0, 0.5, player.max_speed)
-	_expect(landed and landing_enemy.health < 1.0, "Landing Attack no daña automáticamente en aterrizaje válido")
-	_expect(is_equal_approx(combat.get_landing_radius(player.max_speed, player.max_speed), combat.landing_radius), "Landing radius cambia con velocidad máxima")
-	_expect(landing_enemy.knockback_force >= combat.landing_knockback_force, "Landing Attack no aplica knockback radial")
+	_expect(not combat.has_method("try_landing_attack"), "El metodo ofensivo de Landing sigue presente")
+	player.global_position += Vector3.UP * 3.0
+	player.velocity = Vector3(0.0, -2.0, 0.0)
+	player.reset_physics_interpolation()
+	for _frame in 60:
+		await physics_frame
+		if player.is_on_floor():
+			break
+	_expect(player.is_on_floor(), "La prueba de aterrizaje no llego al suelo")
+	_expect(is_equal_approx(landing_enemy.health, 1.0) and is_equal_approx(landing_enemy.knockback_force, 0.0), "El aterrizaje normal todavia daña o empuja enemigos")
+	_expect((player.get_node("VisualRoot/VFX/LandingDustParticles") as GPUParticles3D).emitting, "El aterrizaje normal no emite polvo ligero")
+	landing_enemy.remove_from_group("enemies")
 
 	var saved_player_position := player.global_position
 	player.global_position = saved_player_position + Vector3.UP * 2.0
@@ -276,7 +302,7 @@ func _run() -> void:
 	_expect(controller.get_state() == ActionDashPhaseController.RunState.DEFEAT, "Integridad 0 no genera derrota")
 
 	if _failures.is_empty():
-		print("REWORK_VALIDATION_OK")
+		print("CONSOLIDATION_VALIDATION_OK")
 		quit(0)
 	else:
 		for failure in _failures:
@@ -286,3 +312,17 @@ func _run() -> void:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+func _axis_span(values: Array[Vector3], axis: int) -> float:
+	var minimum := INF
+	var maximum := -INF
+	for value in values:
+		minimum = minf(minimum, value[axis])
+		maximum = maxf(maximum, value[axis])
+	return maximum - minimum
+
+func _maximum_step(values: Array[Vector3]) -> float:
+	var result := 0.0
+	for index in range(1, values.size()):
+		result = maxf(result, values[index].distance_to(values[index - 1]))
+	return result

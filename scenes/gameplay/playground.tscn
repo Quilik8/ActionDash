@@ -171,6 +171,7 @@ mesh = SubResource("BoxMesh_wall_z")
 shape = SubResource("BoxShape3D_wall_z")
 
 [node name="CameraRig" type="Node3D" parent="."]
+physics_interpolation_mode = 2
 script = ExtResource("4_camera")
 target_path = NodePath("../Player")
 follow_offset = Vector3(0, 9, 12)
