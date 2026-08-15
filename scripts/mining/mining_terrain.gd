@@ -4,6 +4,7 @@ extends Node2D
 signal block_broken(cell: Vector2i, block_id: StringName, ore_id: StringName, world_position: Vector2, color: Color)
 
 const CARDINAL_DIRECTIONS: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
+const TERRAIN_RENDER_SCALE: float = 0.5
 
 @export var config: ActionDashMiningConfig
 
@@ -15,6 +16,8 @@ var _generated: bool = false
 var _terrain_image: Image
 var _terrain_texture: ImageTexture
 var _terrain_sprite: Sprite2D
+var _pending_texture_cells: Array[Vector2i] = []
+var _texture_update_queued: bool = false
 
 func generate(seed_value: int) -> void:
 	generation_seed = seed_value
@@ -71,7 +74,6 @@ func drill_cell(cell: Vector2i, damage: float) -> bool:
 	_health[index] = 0.0
 	block_broken.emit(cell, block.id, ore_id, cell_to_world(cell), block.color)
 	_update_texture_cell(cell)
-	queue_redraw()
 	return true
 
 func get_cell_hardness(cell: Vector2i) -> float:
@@ -243,10 +245,12 @@ func _draw() -> void:
 	draw_rect(Rect2(to_local(exit_center) - Vector2(55, 20), Vector2(110, 40)), Color(0.15, 0.8, 1.0, 0.18), false, 3.0)
 
 func _rebuild_texture() -> void:
-	var cell_pixels := maxi(roundi(config.cell_size), 1)
+	var cell_pixels := maxi(roundi(config.cell_size * TERRAIN_RENDER_SCALE), 1)
 	var width_pixels := config.grid_width * cell_pixels
 	var height_pixels := config.get_total_rows() * cell_pixels + cell_pixels * 2
-	_terrain_image = Image.create(width_pixels, height_pixels, false, Image.FORMAT_RGBA8)
+	_pending_texture_cells.clear()
+	_texture_update_queued = false
+	_terrain_image = Image.create(width_pixels, height_pixels, false, Image.FORMAT_RGB8)
 	_terrain_image.fill(Color(0.055, 0.045, 0.055, 1.0))
 	for y in config.get_total_rows():
 		for x in config.grid_width:
@@ -259,12 +263,26 @@ func _rebuild_texture() -> void:
 		_terrain_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		add_child(_terrain_sprite)
 	_terrain_sprite.texture = _terrain_texture
-	_terrain_sprite.position = Vector2(0.0, float(config.get_total_rows() * cell_pixels) * 0.5 - float(cell_pixels))
+	_terrain_sprite.scale = Vector2.ONE / TERRAIN_RENDER_SCALE
+	_terrain_sprite.position = Vector2(0.0, float(config.get_total_rows()) * config.cell_size * 0.5 - config.cell_size)
 
 func _update_texture_cell(cell: Vector2i) -> void:
 	if _terrain_image == null or _terrain_texture == null:
 		return
-	_update_image_cell(cell, maxi(roundi(config.cell_size), 1))
+	_pending_texture_cells.append(cell)
+	if not _texture_update_queued:
+		_texture_update_queued = true
+		call_deferred("_flush_texture_update")
+
+func _flush_texture_update() -> void:
+	_texture_update_queued = false
+	if _terrain_image == null or _terrain_texture == null:
+		_pending_texture_cells.clear()
+		return
+	var cell_pixels := maxi(roundi(config.cell_size * TERRAIN_RENDER_SCALE), 1)
+	for cell in _pending_texture_cells:
+		_update_image_cell(cell, cell_pixels)
+	_pending_texture_cells.clear()
 	_terrain_texture.update(_terrain_image)
 
 func _update_image_cell(cell: Vector2i, cell_pixels: int) -> void:

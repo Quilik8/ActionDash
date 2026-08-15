@@ -16,6 +16,7 @@ var _cargo_stack: Array[StringName] = []
 var _current_load: float = 0.0
 var _last_direction: Vector2 = Vector2.DOWN
 var _history: Array[Vector2] = []
+var _segment_positions_global: Array[Vector2] = []
 var _drilling: bool = false
 var _drill_cell := Vector2i(-1, -1)
 var _drill_visual_time: float = 0.0
@@ -25,6 +26,7 @@ func _ready() -> void:
 	position = _terrain.get_entry_position()
 	for _index in 90:
 		_history.append(global_position)
+	_update_segment_cache()
 	queue_redraw()
 
 func _physics_process(delta: float) -> void:
@@ -52,7 +54,7 @@ func _physics_process(delta: float) -> void:
 		drilling_changed.emit(false, 0.0)
 	if Input.is_action_just_pressed("mining_eject"):
 		eject_last_ore()
-	if _drilling or was_drilling:
+	if direction != Vector2.ZERO or _drilling or was_drilling:
 		queue_redraw()
 
 func try_absorb_ore(ore_id: StringName) -> bool:
@@ -118,21 +120,27 @@ func _record_history() -> void:
 		_history.push_front(global_position)
 		if _history.size() > 120:
 			_history.resize(120)
+		_update_segment_cache()
 
-func _get_segment_position(index: int) -> Vector2:
+func _update_segment_cache() -> void:
+	_segment_positions_global.clear()
+	for index in segment_count:
+		_segment_positions_global.append(_calculate_segment_position(index))
+
+func _calculate_segment_position(index: int) -> Vector2:
 	var desired_distance := float(index + 1) * segment_spacing
 	var accumulated := 0.0
 	var previous := global_position
 	for point in _history:
 		accumulated += previous.distance_to(point)
 		if accumulated >= desired_distance:
-			return to_local(point)
+			return point
 		previous = point
-	return to_local(_history[-1]) if not _history.is_empty() else Vector2.ZERO
+	return _history[-1] if not _history.is_empty() else global_position
 
 func _draw() -> void:
 	for index in range(segment_count - 1, -1, -1):
-		var segment_position := _get_segment_position(index)
+		var segment_position := to_local(_segment_positions_global[index]) if index < _segment_positions_global.size() else Vector2.ZERO
 		var radius := lerpf(6.0, 8.0, 1.0 - float(index) / maxf(float(segment_count), 1.0))
 		draw_circle(segment_position, radius, Color(0.16, 0.34, 0.42))
 		draw_circle(segment_position, radius - 2.0, Color(0.22, 0.62, 0.68))
