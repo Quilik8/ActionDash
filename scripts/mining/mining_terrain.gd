@@ -12,6 +12,9 @@ var _blocks := PackedInt32Array()
 var _ores := PackedInt32Array()
 var _health := PackedFloat32Array()
 var _generated: bool = false
+var _terrain_image: Image
+var _terrain_texture: ImageTexture
+var _terrain_sprite: Sprite2D
 
 func generate(seed_value: int) -> void:
 	generation_seed = seed_value
@@ -30,6 +33,7 @@ func generate(seed_value: int) -> void:
 	_generate_veins(random, config.layer_1_rows, config.get_total_rows(), config.layer_2_veins, config.layer_2_ore_weights, 2)
 	_carve_entry()
 	_generated = true
+	_rebuild_texture()
 	queue_redraw()
 
 func is_generated() -> bool:
@@ -66,6 +70,7 @@ func drill_cell(cell: Vector2i, damage: float) -> bool:
 	_ores[index] = -1
 	_health[index] = 0.0
 	block_broken.emit(cell, block.id, ore_id, cell_to_world(cell), block.color)
+	_update_texture_cell(cell)
 	queue_redraw()
 	return true
 
@@ -232,22 +237,45 @@ func _draw() -> void:
 	if not _generated:
 		return
 	var width_pixels := config.grid_width * config.cell_size
-	var total_height := config.get_total_rows() * config.cell_size
-	draw_rect(Rect2(-width_pixels * 0.5, -config.cell_size * 2.0, width_pixels, total_height + config.cell_size * 2.0), Color(0.055, 0.045, 0.055))
-	for y in config.get_total_rows():
-		for x in config.grid_width:
-			var cell := Vector2i(x, y)
-			var index := _index(cell)
-			if _blocks[index] < 0:
-				continue
-			var top_left := Vector2((float(x) - config.grid_width * 0.5) * config.cell_size, y * config.cell_size)
-			var rect := Rect2(top_left + Vector2.ONE, Vector2.ONE * (config.cell_size - 2.0))
-			var block := config.blocks[_blocks[index]]
-			var damage_tint := lerpf(0.55, 1.0, get_cell_health_ratio(cell))
-			draw_rect(rect, block.color * damage_tint)
-			if _ores[index] >= 0:
-				draw_circle(rect.get_center(), config.cell_size * 0.23, config.ores[_ores[index]].color)
 	var divider_y := config.layer_1_rows * config.cell_size
 	draw_line(Vector2(-width_pixels * 0.5, divider_y), Vector2(width_pixels * 0.5, divider_y), Color(0.8, 0.35, 0.15, 0.6), 2.0)
 	var exit_center := cell_to_world(Vector2i(floori(float(config.grid_width) / 2.0), 0))
 	draw_rect(Rect2(to_local(exit_center) - Vector2(55, 20), Vector2(110, 40)), Color(0.15, 0.8, 1.0, 0.18), false, 3.0)
+
+func _rebuild_texture() -> void:
+	var cell_pixels := maxi(roundi(config.cell_size), 1)
+	var width_pixels := config.grid_width * cell_pixels
+	var height_pixels := config.get_total_rows() * cell_pixels + cell_pixels * 2
+	_terrain_image = Image.create(width_pixels, height_pixels, false, Image.FORMAT_RGBA8)
+	_terrain_image.fill(Color(0.055, 0.045, 0.055, 1.0))
+	for y in config.get_total_rows():
+		for x in config.grid_width:
+			_update_image_cell(Vector2i(x, y), cell_pixels)
+	_terrain_texture = ImageTexture.create_from_image(_terrain_image)
+	if not is_instance_valid(_terrain_sprite):
+		_terrain_sprite = Sprite2D.new()
+		_terrain_sprite.name = "TerrainTexture"
+		_terrain_sprite.z_index = -1
+		_terrain_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		add_child(_terrain_sprite)
+	_terrain_sprite.texture = _terrain_texture
+	_terrain_sprite.position = Vector2(0.0, float(config.get_total_rows() * cell_pixels) * 0.5 - float(cell_pixels))
+
+func _update_texture_cell(cell: Vector2i) -> void:
+	if _terrain_image == null or _terrain_texture == null:
+		return
+	_update_image_cell(cell, maxi(roundi(config.cell_size), 1))
+	_terrain_texture.update(_terrain_image)
+
+func _update_image_cell(cell: Vector2i, cell_pixels: int) -> void:
+	var image_position := Vector2i(cell.x * cell_pixels + 1, (cell.y + 2) * cell_pixels + 1)
+	var inner_size := maxi(cell_pixels - 2, 1)
+	var index := _index(cell)
+	var cell_color := Color(0.055, 0.045, 0.055, 1.0)
+	if index >= 0 and _blocks[index] >= 0:
+		cell_color = config.blocks[_blocks[index]].color
+	_terrain_image.fill_rect(Rect2i(image_position, Vector2i(inner_size, inner_size)), cell_color)
+	if index >= 0 and _ores[index] >= 0:
+		var ore_size := maxi(floori(float(cell_pixels) / 2.0), 2)
+		var ore_position := Vector2i(cell.x * cell_pixels + floori(float(cell_pixels - ore_size) / 2.0), (cell.y + 2) * cell_pixels + floori(float(cell_pixels - ore_size) / 2.0))
+		_terrain_image.fill_rect(Rect2i(ore_position, Vector2i(ore_size, ore_size)), config.ores[_ores[index]].color)

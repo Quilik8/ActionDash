@@ -77,6 +77,14 @@ La mina cacheada se reutiliza al entrar por segunda vez: no regenera bloques, no
 
 La regresión 3D existente permanece en `scripts/dev/rework_validation.gd` y devuelve `CONSOLIDATION_VALIDATION_OK`.
 
+## Optimización de rendimiento
+
+La primera versión tenía tres costes sostenidos innecesarios: `MiningMVP` consultaba el grupo global de ores en cada tick físico, la profundidad de la UI se escribía en cada tick y `MiningMech` llamaba `queue_redraw()` aunque estuviera quieto. Ahora el MVP mantiene una lista local de `LooseOre`, desactiva su `_physics_process` cuando no existen ores pendientes, actualiza profundidad sólo cuando cambia la celda y redibuja el meca sólo mientras perfora.
+
+El terreno dejó de emitir cientos de primitivas Canvas por bloque. Se genera una sola `ImageTexture` de aproximadamente `960×912` píxeles y un único `Sprite2D`; sólo se actualiza la celda/textura cuando se genera la mina o se rompe un bloque. Esto reduce draw calls y trabajo de Canvas en el AMD A8 sin cambiar la grid lógica ni el gameplay.
+
+La validación `MINING_MVP_VALIDATION_OK` continúa pasando después de la optimización. Godot MCP sólo conserva el warning del driver AMD que fuerza ANGLE; no hay warnings nuevos de GDScript.
+
 ## Deliberadamente pospuesto
 
 Cartas y upgrades de mina, tienda, árbol nuevo, metaprogresión, múltiples mecas, arte final de serpiente, minerales visibles en segmentos, dron, timer de oleada, loop Wave/Mine/Wave, final de expedición, endless mode, audio final, terreno infinito y serialización completa para descargar de memoria ambas escenas.

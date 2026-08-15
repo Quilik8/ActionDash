@@ -52,7 +52,8 @@ func _physics_process(delta: float) -> void:
 		drilling_changed.emit(false, 0.0)
 	if Input.is_action_just_pressed("mining_eject"):
 		eject_last_ore()
-	queue_redraw()
+	if _drilling or was_drilling:
+		queue_redraw()
 
 func try_absorb_ore(ore_id: StringName) -> bool:
 	var ore := config.get_ore(ore_id)

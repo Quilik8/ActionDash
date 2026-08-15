@@ -16,6 +16,8 @@ extends Node2D
 
 var _notice_time: float = 0.0
 var _run_session: ActionDashRunState
+var _loose_ores: Array[ActionDashLooseOre] = []
+var _last_depth_cell := Vector2i(-9999, -9999)
 
 func _ready() -> void:
 	_run_session = get_node("/root/RunSession") as ActionDashRunState
@@ -26,17 +28,24 @@ func _ready() -> void:
 	mech.cargo_changed.connect(_update_ui)
 	mech.drilling_changed.connect(_on_drilling_changed)
 	_run_session.resources_changed.connect(_on_run_resources_changed)
+	set_physics_process(false)
 	_update_ui()
 	_show_notice("M: depositar/salir en la zona superior | E: expulsar último ore", 4.0)
 
 func _physics_process(_delta: float) -> void:
-	for node in get_tree().get_nodes_in_group("mining_loose_ores"):
-		var loose := node as ActionDashLooseOre
-		if loose == null or not loose.can_be_picked_up():
+	for index in range(_loose_ores.size() - 1, -1, -1):
+		var loose := _loose_ores[index]
+		if not is_instance_valid(loose):
+			_loose_ores.remove_at(index)
+			continue
+		if not loose.can_be_picked_up():
 			continue
 		if mech.global_position.distance_to(loose.global_position) <= 20.0 and mech.try_absorb_ore(loose.ore_id):
 			_show_notice("ABSORBIDO: %s" % loose.ore_data.display_name, 1.2)
 			loose.queue_free()
+			_loose_ores.remove_at(index)
+	if _loose_ores.is_empty():
+		set_physics_process(false)
 	_update_depth()
 
 func _process(delta: float) -> void:
@@ -44,6 +53,7 @@ func _process(delta: float) -> void:
 		_notice_time = maxf(_notice_time - delta, 0.0)
 		if _notice_time <= 0.0:
 			_notice_label.text = ""
+			set_process(false)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("mining_toggle"):
@@ -75,6 +85,8 @@ func spawn_loose_ore(ore_id: StringName, world_position: Vector2, pickup_delay: 
 	$LooseOres.add_child(loose)
 	loose.global_position = terrain.find_nearest_open_position(world_position)
 	loose.setup(ore, pickup_delay)
+	_loose_ores.append(loose)
+	set_physics_process(true)
 	return loose
 
 func _on_block_broken(_cell: Vector2i, _block_id: StringName, ore_id: StringName, world_position: Vector2, color: Color) -> void:
@@ -98,6 +110,10 @@ func _on_run_resources_changed(_value: int, _resources: Dictionary) -> void:
 	_update_ui()
 
 func _update_depth() -> void:
+	var depth_cell := terrain.world_to_cell(mech.global_position)
+	if depth_cell == _last_depth_cell:
+		return
+	_last_depth_cell = depth_cell
 	_depth_label.text = "DEPTH: %d   LAYER: %d" % [terrain.get_depth_row(mech.global_position), terrain.get_layer_at(mech.global_position)]
 
 func _update_ui() -> void:
@@ -112,3 +128,4 @@ func _update_ui() -> void:
 func _show_notice(message: String, duration: float) -> void:
 	_notice_label.text = message
 	_notice_time = duration
+	set_process(true)
