@@ -2,9 +2,20 @@ class_name ActionDashMiningTerrain
 extends Node2D
 
 signal block_broken(cell: Vector2i, block_id: StringName, ore_id: StringName, world_position: Vector2, color: Color)
+signal ore_discovered(ore_id: StringName, world_position: Vector2, color: Color)
 
 const CARDINAL_DIRECTIONS: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
 const TERRAIN_RENDER_SCALE: float = 0.5
+const TERRAIN_CHUNK_WIDTH: int = 8
+const TERRAIN_CHUNK_HEIGHT: int = 9
+const HIDDEN_COLOR := Color(0.012, 0.016, 0.022, 1.0)
+const EXCAVATED_COLOR := Color(0.075, 0.065, 0.08, 1.0)
+
+enum VisibilityState {
+	HIDDEN,
+	EXPOSED,
+	EXCAVATED,
+}
 
 @export var config: ActionDashMiningConfig
 
@@ -12,11 +23,13 @@ var generation_seed: int
 var _blocks := PackedInt32Array()
 var _ores := PackedInt32Array()
 var _health := PackedFloat32Array()
+var _visibility := PackedInt32Array()
 var _generated: bool = false
-var _terrain_image: Image
-var _terrain_texture: ImageTexture
-var _terrain_sprite: Sprite2D
-var _broken_visuals: Array[Polygon2D] = []
+var _chunk_images: Array[Image] = []
+var _chunk_textures: Array[ImageTexture] = []
+var _chunk_sprites: Array[Sprite2D] = []
+var _chunk_cell_pixels: int = 1
+var _dirty_chunks: Dictionary = {}
 
 func generate(seed_value: int) -> void:
 	generation_seed = seed_value
@@ -24,23 +37,70 @@ func generate(seed_value: int) -> void:
 	_blocks.resize(count)
 	_ores.resize(count)
 	_health.resize(count)
+	_visibility.resize(count)
 	_ores.fill(-1)
-	_clear_broken_visuals()
+	_visibility.fill(VisibilityState.HIDDEN)
 	var random := RandomNumberGenerator.new()
 	random.seed = seed_value
 	for y in config.get_total_rows():
 		for x in config.grid_width:
 			var block_index := _pick_layer_block(random, 1 if y < config.layer_1_rows else 2)
 			_set_cell(Vector2i(x, y), block_index, -1)
-	_generate_veins(random, 0, config.layer_1_rows, config.layer_1_veins, config.layer_1_ore_weights, 1)
-	_generate_veins(random, config.layer_1_rows, config.get_total_rows(), config.layer_2_veins, config.layer_2_ore_weights, 2)
+	_generate_terrain_structures(random)
+	_generate_veins(random, 0, config.layer_1_rows, 1)
+	_generate_veins(random, config.layer_1_rows, config.get_total_rows(), 2)
 	_carve_entry()
+	_initialize_visibility()
 	_generated = true
-	_rebuild_texture()
+	_rebuild_chunks()
 	queue_redraw()
 
 func is_generated() -> bool:
 	return _generated
+
+func get_chunk_count() -> int:
+	return _chunk_sprites.size()
+
+func get_visibility(cell: Vector2i) -> int:
+	var index := _index(cell)
+	return _visibility[index] if index >= 0 else VisibilityState.HIDDEN
+
+func is_cell_hidden(cell: Vector2i) -> bool:
+	return get_visibility(cell) == VisibilityState.HIDDEN
+
+func is_cell_exposed(cell: Vector2i) -> bool:
+	return get_visibility(cell) == VisibilityState.EXPOSED
+
+func is_cell_excavated(cell: Vector2i) -> bool:
+	return get_visibility(cell) == VisibilityState.EXCAVATED
+
+func get_visible_ore_id(cell: Vector2i) -> StringName:
+	var index := _index(cell)
+	if index < 0 or _visibility[index] != VisibilityState.EXPOSED or _ores[index] < 0:
+		return &""
+	return config.ores[_ores[index]].id
+
+func get_ore_id_at(cell: Vector2i) -> StringName:
+	var index := _index(cell)
+	if index < 0 or _ores[index] < 0:
+		return &""
+	return config.ores[_ores[index]].id
+
+func get_discovered_ore_count() -> int:
+	var count := 0
+	for index in _visibility.size():
+		if _visibility[index] == VisibilityState.EXPOSED and _ores[index] >= 0:
+			count += 1
+	return count
+
+func find_first_hidden_ore_cell() -> Vector2i:
+	for y in range(1, config.get_total_rows() - 1):
+		for x in range(1, config.grid_width - 1):
+			var cell := Vector2i(x, y)
+			var index := _index(cell)
+			if index >= 0 and _ores[index] >= 0 and _visibility[index] == VisibilityState.HIDDEN:
+				return cell
+	return Vector2i(-1, -1)
 
 func world_to_cell(world_position: Vector2) -> Vector2i:
 	var local := to_local(world_position)
@@ -72,8 +132,9 @@ func drill_cell(cell: Vector2i, damage: float) -> bool:
 	_blocks[index] = -1
 	_ores[index] = -1
 	_health[index] = 0.0
+	_update_visibility_after_excavation(cell, true)
 	block_broken.emit(cell, block.id, ore_id, cell_to_world(cell), block.color)
-	_add_broken_visual(cell)
+	_flush_dirty_chunks()
 	return true
 
 func get_cell_hardness(cell: Vector2i) -> float:
@@ -170,6 +231,39 @@ func get_ore_cluster_sizes() -> Array[int]:
 			result.append(size)
 	return result
 
+func _generate_terrain_structures(random: RandomNumberGenerator) -> void:
+	var compact_index := config.get_block_index(&"compact_soil")
+	var soil_index := config.get_block_index(&"soil")
+	var rock_index := config.get_block_index(&"rock")
+	_generate_pockets(random, 0, config.layer_1_rows, config.layer_1_compact_pockets, compact_index, 1, 2)
+	_generate_pockets(random, config.layer_1_rows, config.get_total_rows(), config.layer_2_compact_pockets, compact_index, 1, 3)
+	_generate_pockets(random, config.layer_1_rows, config.get_total_rows(), config.layer_2_soft_pockets, soil_index, 1, 2)
+	_generate_rock_bands(random, config.layer_1_rows, config.get_total_rows(), config.layer_2_rock_bands, rock_index)
+
+func _generate_pockets(random: RandomNumberGenerator, start_row: int, end_row: int, pocket_count: int, block_index: int, min_radius: int, max_radius: int) -> void:
+	if block_index < 0:
+		return
+	for _pocket in pocket_count:
+		var center := Vector2i(random.randi_range(2, config.grid_width - 3), random.randi_range(start_row, end_row - 1))
+		var radius := random.randi_range(min_radius, max_radius)
+		for y in range(center.y - radius, center.y + radius + 1):
+			for x in range(center.x - radius, center.x + radius + 1):
+				var offset := Vector2(x - center.x, y - center.y)
+				if offset.length_squared() <= float(radius * radius) and y >= start_row and y < end_row and x > 0 and x < config.grid_width - 1:
+					_set_cell(Vector2i(x, y), block_index, -1)
+
+func _generate_rock_bands(random: RandomNumberGenerator, start_row: int, end_row: int, band_count: int, block_index: int) -> void:
+	if block_index < 0:
+		return
+	for _band in band_count:
+		var y := random.randi_range(start_row + 1, end_row - 2)
+		var start_x := random.randi_range(2, config.grid_width - 10)
+		var length := random.randi_range(5, 10)
+		for x in range(start_x, mini(start_x + length, config.grid_width - 1)):
+			_set_cell(Vector2i(x, y), block_index, -1)
+			if random.randf() > 0.55 and y + 1 < end_row:
+				_set_cell(Vector2i(x, y + 1), block_index, -1)
+
 func _pick_layer_block(random: RandomNumberGenerator, layer: int) -> int:
 	var soil := config.layer_1_soil_weight if layer == 1 else config.layer_2_soil_weight
 	var compact := config.layer_1_compact_weight if layer == 1 else config.layer_2_compact_weight
@@ -186,41 +280,63 @@ func _carve_entry() -> void:
 		for x in range(center - 2, center + 3):
 			_set_cell(Vector2i(x, y), -1, -1)
 
-func _generate_veins(random: RandomNumberGenerator, start_row: int, end_row: int, vein_count: int, ore_weights: Array[float], layer: int) -> void:
-	var ore_block_index := config.get_block_index(&"ore_block")
-	for vein_index in vein_count:
-		var guaranteed_count := 2 if layer == 1 else 3
-		var ore_index := vein_index if vein_index < guaranteed_count else _pick_weighted_index(random, ore_weights)
-		var current := Vector2i(random.randi_range(2, config.grid_width - 3), random.randi_range(start_row, end_row - 1))
-		var target_size := random.randi_range(config.minimum_vein_size, config.maximum_vein_size)
-		var placed: Dictionary = {}
-		for _cell in target_size:
-			current.x = clampi(current.x, 1, config.grid_width - 2)
-			current.y = clampi(current.y, start_row, end_row - 1)
-			_set_cell(current, ore_block_index, ore_index)
-			placed[current] = true
-			var moved := false
-			var first_direction := random.randi_range(0, CARDINAL_DIRECTIONS.size() - 1)
-			for offset in CARDINAL_DIRECTIONS.size():
-				var direction := CARDINAL_DIRECTIONS[(first_direction + offset) % CARDINAL_DIRECTIONS.size()]
-				var next: Vector2i = current + direction
-				if next.y >= start_row and next.y < end_row and next.x > 0 and next.x < config.grid_width - 1 and not placed.has(next):
-					current = next
-					moved = true
-					break
-			if not moved:
-				break
+func _initialize_visibility() -> void:
+	var center := floori(float(config.grid_width) / 2.0)
+	for y in mini(4, config.get_total_rows()):
+		for x in range(center - 2, center + 3):
+			_update_visibility_after_excavation(Vector2i(x, y), false)
 
-func _pick_weighted_index(random: RandomNumberGenerator, weights: Array[float]) -> int:
-	var total := 0.0
-	for weight in weights:
-		total += weight
-	var roll := random.randf() * maxf(total, 0.001)
-	for index in weights.size():
-		roll -= weights[index]
-		if roll <= 0.0:
-			return index
-	return maxi(weights.size() - 1, 0)
+func _update_visibility_after_excavation(cell: Vector2i, emit_discovery: bool) -> void:
+	_set_visibility(cell, VisibilityState.EXCAVATED, emit_discovery)
+	for direction in CARDINAL_DIRECTIONS:
+		var neighbor := cell + direction
+		var neighbor_index := _index(neighbor)
+		if neighbor_index < 0:
+			continue
+		if _blocks[neighbor_index] >= 0:
+			_set_visibility(neighbor, VisibilityState.EXPOSED, emit_discovery)
+		else:
+			_set_visibility(neighbor, VisibilityState.EXCAVATED, emit_discovery)
+
+func _set_visibility(cell: Vector2i, state: int, emit_discovery: bool) -> void:
+	var index := _index(cell)
+	if index < 0 or _visibility[index] == state:
+		return
+	var was_hidden := _visibility[index] == VisibilityState.HIDDEN
+	_visibility[index] = state
+	_mark_chunk_dirty(cell)
+	if state == VisibilityState.EXPOSED and was_hidden and emit_discovery and _ores[index] >= 0:
+		var ore := config.ores[_ores[index]]
+		ore_discovered.emit(ore.id, cell_to_world(cell), ore.color)
+
+func _generate_veins(random: RandomNumberGenerator, start_row: int, end_row: int, layer: int) -> void:
+	var ore_block_index := config.get_block_index(&"ore_block")
+	for ore_index in config.ores.size():
+		var ore := config.ores[ore_index]
+		var vein_count := ore.layer_1_vein_count if layer == 1 else ore.layer_2_vein_count
+		for _vein in vein_count:
+			var placement_end := end_row if ore.preferred_layer == layer else mini(end_row, start_row + maxi(floori(float(end_row - start_row) / 2.0), 1))
+			var current := Vector2i(random.randi_range(2, config.grid_width - 3), random.randi_range(start_row, placement_end - 1))
+			var target_size := random.randi_range(ore.vein_min_size, ore.vein_max_size)
+			var placed: Dictionary = {}
+			for _cell in target_size:
+				current.x = clampi(current.x, 1, config.grid_width - 2)
+				current.y = clampi(current.y, start_row, end_row - 1)
+				var current_index := _index(current)
+				if current_index >= 0 and _ores[current_index] < 0:
+					_set_cell(current, ore_block_index, ore_index)
+				placed[current] = true
+				var moved := false
+				var first_direction := random.randi_range(0, CARDINAL_DIRECTIONS.size() - 1)
+				for offset in CARDINAL_DIRECTIONS.size():
+					var direction := CARDINAL_DIRECTIONS[(first_direction + offset) % CARDINAL_DIRECTIONS.size()]
+					var next: Vector2i = current + direction
+					if next.y >= start_row and next.y < end_row and next.x > 0 and next.x < config.grid_width - 1 and not placed.has(next):
+						current = next
+						moved = true
+						break
+				if not moved:
+					break
 
 func _set_cell(cell: Vector2i, block_index: int, ore_index: int) -> void:
 	var index := _index(cell)
@@ -244,57 +360,93 @@ func _draw() -> void:
 	var exit_center := cell_to_world(Vector2i(floori(float(config.grid_width) / 2.0), 0))
 	draw_rect(Rect2(to_local(exit_center) - Vector2(55, 20), Vector2(110, 40)), Color(0.15, 0.8, 1.0, 0.18), false, 3.0)
 
-func _rebuild_texture() -> void:
-	var cell_pixels := maxi(roundi(config.cell_size * TERRAIN_RENDER_SCALE), 1)
-	var width_pixels := config.grid_width * cell_pixels
-	var height_pixels := config.get_total_rows() * cell_pixels + cell_pixels * 2
-	_terrain_image = Image.create(width_pixels, height_pixels, false, Image.FORMAT_RGB8)
-	_terrain_image.fill(Color(0.055, 0.045, 0.055, 1.0))
-	for y in config.get_total_rows():
-		for x in config.grid_width:
-			_update_image_cell(Vector2i(x, y), cell_pixels)
-	_terrain_texture = ImageTexture.create_from_image(_terrain_image)
-	if not is_instance_valid(_terrain_sprite):
-		_terrain_sprite = Sprite2D.new()
-		_terrain_sprite.name = "TerrainTexture"
-		_terrain_sprite.z_index = -1
-		_terrain_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		add_child(_terrain_sprite)
-	_terrain_sprite.texture = _terrain_texture
-	_terrain_sprite.scale = Vector2.ONE / TERRAIN_RENDER_SCALE
-	_terrain_sprite.position = Vector2(0.0, float(config.get_total_rows()) * config.cell_size * 0.5 - config.cell_size)
+func _rebuild_chunks() -> void:
+	_clear_chunks()
+	_dirty_chunks.clear()
+	_chunk_cell_pixels = maxi(roundi(config.cell_size * TERRAIN_RENDER_SCALE), 1)
+	var chunk_columns := ceili(float(config.grid_width) / float(TERRAIN_CHUNK_WIDTH))
+	var chunk_rows := ceili(float(config.get_total_rows()) / float(TERRAIN_CHUNK_HEIGHT))
+	for chunk_y in chunk_rows:
+		for chunk_x in chunk_columns:
+			var start_x := chunk_x * TERRAIN_CHUNK_WIDTH
+			var start_y := chunk_y * TERRAIN_CHUNK_HEIGHT
+			var chunk_width := mini(TERRAIN_CHUNK_WIDTH, config.grid_width - start_x)
+			var chunk_height := mini(TERRAIN_CHUNK_HEIGHT, config.get_total_rows() - start_y)
+			var image := Image.create(chunk_width * _chunk_cell_pixels, chunk_height * _chunk_cell_pixels, false, Image.FORMAT_RGB8)
+			image.fill(HIDDEN_COLOR)
+			for local_y in chunk_height:
+				for local_x in chunk_width:
+					_paint_cell(image, Vector2i(start_x + local_x, start_y + local_y))
+			var texture := ImageTexture.create_from_image(image)
+			var sprite := Sprite2D.new()
+			sprite.name = "TerrainChunk_%d_%d" % [chunk_x, chunk_y]
+			sprite.z_index = -1
+			sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			sprite.texture = texture
+			sprite.scale = Vector2.ONE / TERRAIN_RENDER_SCALE
+			sprite.position = Vector2(
+				(float(start_x) + float(chunk_width) * 0.5 - float(config.grid_width) * 0.5) * config.cell_size,
+				(float(start_y) + float(chunk_height) * 0.5) * config.cell_size
+			)
+			add_child(sprite)
+			_chunk_images.append(image)
+			_chunk_textures.append(texture)
+			_chunk_sprites.append(sprite)
 
-func _add_broken_visual(cell: Vector2i) -> void:
-	var hole := Polygon2D.new()
-	hole.name = "BrokenCell_%d_%d" % [cell.x, cell.y]
-	var half_size := config.cell_size * 0.5
-	hole.polygon = PackedVector2Array([
-		Vector2(-half_size, -half_size),
-		Vector2(half_size, -half_size),
-		Vector2(half_size, half_size),
-		Vector2(-half_size, half_size),
-	])
-	hole.color = Color(0.055, 0.045, 0.055, 1.0)
-	hole.position = to_local(cell_to_world(cell))
-	hole.z_index = 0
-	add_child(hole)
-	_broken_visuals.append(hole)
+func _clear_chunks() -> void:
+	for sprite in _chunk_sprites:
+		if is_instance_valid(sprite):
+			sprite.queue_free()
+	_chunk_images.clear()
+	_chunk_textures.clear()
+	_chunk_sprites.clear()
 
-func _clear_broken_visuals() -> void:
-	for visual in _broken_visuals:
-		if is_instance_valid(visual):
-			visual.queue_free()
-	_broken_visuals.clear()
+func _mark_chunk_dirty(cell: Vector2i) -> void:
+	if _chunk_textures.is_empty():
+		return
+	_dirty_chunks[_get_chunk_index(cell)] = true
 
-func _update_image_cell(cell: Vector2i, cell_pixels: int) -> void:
-	var image_position := Vector2i(cell.x * cell_pixels + 1, (cell.y + 2) * cell_pixels + 1)
-	var inner_size := maxi(cell_pixels - 2, 1)
+func _flush_dirty_chunks() -> void:
+	if _dirty_chunks.is_empty():
+		return
+	for chunk_key in _dirty_chunks:
+		var chunk_index := int(chunk_key)
+		var chunk_x := chunk_index % _get_chunk_columns()
+		var chunk_y := floori(float(chunk_index) / float(_get_chunk_columns()))
+		var start_x := chunk_x * TERRAIN_CHUNK_WIDTH
+		var start_y := chunk_y * TERRAIN_CHUNK_HEIGHT
+		var chunk_width := mini(TERRAIN_CHUNK_WIDTH, config.grid_width - start_x)
+		var chunk_height := mini(TERRAIN_CHUNK_HEIGHT, config.get_total_rows() - start_y)
+		var image := _chunk_images[chunk_index]
+		for local_y in chunk_height:
+			for local_x in chunk_width:
+				_paint_cell(image, Vector2i(start_x + local_x, start_y + local_y))
+		_chunk_textures[chunk_index].update(image)
+	_dirty_chunks.clear()
+
+func _get_chunk_columns() -> int:
+	return ceili(float(config.grid_width) / float(TERRAIN_CHUNK_WIDTH))
+
+func _get_chunk_index(cell: Vector2i) -> int:
+	return floori(float(cell.y) / float(TERRAIN_CHUNK_HEIGHT)) * _get_chunk_columns() + floori(float(cell.x) / float(TERRAIN_CHUNK_WIDTH))
+
+func _paint_cell(image: Image, cell: Vector2i) -> void:
+	var local_cell := Vector2i(posmod(cell.x, TERRAIN_CHUNK_WIDTH), posmod(cell.y, TERRAIN_CHUNK_HEIGHT))
+	var image_position := local_cell * _chunk_cell_pixels
+	var cell_rect := Rect2i(image_position, Vector2i(_chunk_cell_pixels, _chunk_cell_pixels))
 	var index := _index(cell)
-	var cell_color := Color(0.055, 0.045, 0.055, 1.0)
-	if index >= 0 and _blocks[index] >= 0:
-		cell_color = config.blocks[_blocks[index]].color
-	_terrain_image.fill_rect(Rect2i(image_position, Vector2i(inner_size, inner_size)), cell_color)
-	if index >= 0 and _ores[index] >= 0:
-		var ore_size := maxi(floori(float(cell_pixels) / 2.0), 2)
-		var ore_position := Vector2i(cell.x * cell_pixels + floori(float(cell_pixels - ore_size) / 2.0), (cell.y + 2) * cell_pixels + floori(float(cell_pixels - ore_size) / 2.0))
-		_terrain_image.fill_rect(Rect2i(ore_position, Vector2i(ore_size, ore_size)), config.ores[_ores[index]].color)
+	var state := get_visibility(cell)
+	var cell_color := EXCAVATED_COLOR
+	if state == VisibilityState.HIDDEN:
+		cell_color = HIDDEN_COLOR
+	elif state == VisibilityState.EXPOSED and index >= 0 and _blocks[index] >= 0:
+		cell_color = _get_display_block_color(cell, config.blocks[_blocks[index]].color)
+	image.fill_rect(cell_rect, cell_color)
+	if state == VisibilityState.EXPOSED and index >= 0 and _ores[index] >= 0:
+		var ore_size := maxi(floori(float(_chunk_cell_pixels) / 2.0), 2)
+		var ore_position := image_position + Vector2i(floori(float(_chunk_cell_pixels - ore_size) / 2.0), floori(float(_chunk_cell_pixels - ore_size) / 2.0))
+		image.fill_rect(Rect2i(ore_position, Vector2i(ore_size, ore_size)), config.ores[_ores[index]].color)
+
+func _get_display_block_color(cell: Vector2i, base_color: Color) -> Color:
+	var layer_tint := Color(0.95, 0.9, 0.82, 1.0) if cell.y < config.layer_1_rows else Color(0.82, 0.9, 1.0, 1.0)
+	return Color(base_color.r * layer_tint.r, base_color.g * layer_tint.g, base_color.b * layer_tint.b, 1.0)

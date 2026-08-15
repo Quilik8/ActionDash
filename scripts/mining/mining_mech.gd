@@ -4,6 +4,7 @@ extends Node2D
 signal cargo_changed
 signal ore_ejected(ore_id: StringName, world_position: Vector2)
 signal drilling_changed(active: bool, progress: float)
+signal cell_changed(cell: Vector2i)
 
 @export var config: ActionDashMiningConfig
 @export var terrain_path: NodePath
@@ -24,10 +25,12 @@ var _drill_visual: Polygon2D
 var _drilling: bool = false
 var _drill_cell := Vector2i(-1, -1)
 var _drill_visual_time: float = 0.0
+var _last_position_cell := Vector2i(-9999, -9999)
 
 func _ready() -> void:
 	_terrain = get_node(terrain_path) as ActionDashMiningTerrain
 	position = _terrain.get_entry_position()
+	_last_position_cell = _terrain.world_to_cell(global_position)
 	for _index in 90:
 		_history.append(global_position)
 	_update_segment_cache()
@@ -59,6 +62,7 @@ func _physics_process(delta: float) -> void:
 		drilling_changed.emit(false, 0.0)
 	if Input.is_action_just_pressed("mining_eject"):
 		eject_last_ore()
+	_emit_cell_changed_if_needed()
 	_update_visual_positions()
 
 func try_absorb_ore(ore_id: StringName) -> bool:
@@ -125,6 +129,13 @@ func _record_history() -> void:
 		if _history.size() > 120:
 			_history.resize(120)
 		_update_segment_cache()
+
+func _emit_cell_changed_if_needed() -> void:
+	var current_cell := _terrain.world_to_cell(global_position)
+	if current_cell == _last_position_cell:
+		return
+	_last_position_cell = current_cell
+	cell_changed.emit(current_cell)
 
 func _update_segment_cache() -> void:
 	_segment_positions_global.clear()

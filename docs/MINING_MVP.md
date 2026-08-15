@@ -5,8 +5,8 @@ Primer prototipo funcional de minería lateral para Godot 4.7.1. Su objetivo es 
 ## Escena y arquitectura
 
 - Escena: `res://scenes/mining/mining_mvp.tscn`.
-- `MiningTerrain`: grid lógico de `40 x 36` celdas dibujado por un solo `Node2D`; no crea un nodo por bloque.
-- `MiningMech`: cabeza/taladro y cinco segmentos dibujados como placeholders. El cuerpo sigue un historial corto de posiciones, sin IK ni física compleja.
+- `MiningTerrain`: grid lógico de `40 x 36` celdas renderizado con chunks fijos de `8 x 9` y una textura pequeña por chunk; no crea un nodo por bloque.
+- `MiningMech`: cabeza/taladro y cinco segmentos como polígonos persistentes. El cuerpo sigue un historial corto de posiciones, sin IK ni física compleja ni procesamiento por segmento.
 - `LooseOre`: instancia ligera únicamente para ores extraídos o expulsados.
 - `RunSession`: autoload mínimo que conserva `extracted_value`, cantidades por ore, seed y las escenas alternadas.
 - Configuración: `resources/mining/mining_mvp_config.tres`, con Resources separados para bloques y ores.
@@ -24,6 +24,8 @@ Al cambiar de sección, una escena queda fuera del árbol y la otra pasa a ser `
 
 El controlador prueba la celda frente al taladro. Si está vacía, mueve la cabeza; si está ocupada, aplica `drill_power * delta`. Al agotar la dureza, la celda se vacía y el meca puede avanzar manteniendo la misma dirección.
 
+La visibilidad usa tres estados persistentes: `HIDDEN` para sólido no explorado, `EXPOSED` para una pared sólida cardinalmente adyacente al túnel y `EXCAVATED` para una celda ya perforada. Romper una celda actualiza sólo esa celda y sus cuatro vecinos cardinales; los túneles no vuelven a ocultarse.
+
 Configuración actual:
 
 - SOIL: dureza `6` — aproximadamente `0.5 s` con potencia `12`.
@@ -37,10 +39,10 @@ El feedback usa shake local de cabeza, barra de progreso y cuatro fragmentos tra
 
 Seed de prueba por defecto: `814271`, almacenada en `RunSession.mining_seed`. La misma seed reproduce el mismo grid y las mismas vetas.
 
-- Layer 1: filas `0–17`; 68% soil, 22% compact soil, 10% rock y 6 vetas. Garantiza Voltrita y Keronita.
-- Layer 2: filas `18–35`; 30% soil, 42% compact soil, 28% rock y 8 vetas. Garantiza Voltrita, Keronita y al menos una veta de Nexalita.
+- Layer 1: filas `0–17`; 68% soil, 22% compact soil, 10% rock, pockets compactos pequeños y vetas comunes/medias. Garantiza Voltrita y Keronita.
+- Layer 2: filas `18–35`; 30% soil, 42% compact soil, 28% rock, pockets blandos, pockets compactos y bandas parciales de roca. Usa más vetas de Keronita/Nexalita y mayor dureza media.
 
-Las vetas son caminatas cardinales pequeñas de `2–4` celdas. Después de generar se abre una entrada de cinco celdas de ancho y cuatro filas de alto. Layer 2 cambia composición y distribución de ores; no multiplica globalmente el HP.
+Las vetas son caminatas cardinales pequeñas con tamaño y frecuencia configurados por ore. Voltrita favorece Layer 1, Keronita Layer 2 y Nexalita sólo aparece como veta de Layer 2. Después de generar se abre una entrada de cinco celdas de ancho y cuatro filas de alto. Layer 2 cambia composición y distribución de ores; no multiplica globalmente el HP.
 
 ## Ores provisionales
 
@@ -49,6 +51,8 @@ Las vetas son caminatas cardinales pequeñas de `2–4` celdas. Después de gene
 - NEXALITA: valor `70`, peso `3`, rara y garantizada sólo en Layer 2, color naranja.
 
 Al romper ORE_BLOCK aparece un `LooseOre`. Si cabe, se absorbe automáticamente. Si el peso restante no alcanza, permanece físicamente en el túnel para recogerlo después.
+
+Los ores dentro de celdas `HIDDEN` no se renderizan ni cuentan como descubiertos. Al exponer una pared `ORE_BLOCK`, aparece su color y la UI muestra un aviso breve `DESCUBIERTO`. Los `LooseOre` ya extraídos siguen visibles y recuperables.
 
 ## Carga, velocidad y LIFO
 
@@ -81,9 +85,11 @@ La regresión 3D existente permanece en `scripts/dev/rework_validation.gd` y dev
 
 La primera versión tenía tres costes sostenidos innecesarios: `MiningMVP` consultaba el grupo global de ores en cada tick físico, la profundidad de la UI se escribía en cada tick y `MiningMech` llamaba `queue_redraw()` durante el movimiento. Ahora el MVP mantiene una lista local de `LooseOre`, desactiva su `_physics_process` cuando no existen ores pendientes, actualiza profundidad sólo cuando cambia la celda y mueve polígonos persistentes para la serpiente sin reconstruir su dibujo por frame.
 
-El terreno base se genera como una sola `ImageTexture` de aproximadamente `480×456` píxeles, escalada 2× con filtrado nearest en un único `Sprite2D`. Al romper un bloque no se vuelve a subir la textura completa: se añade un `Polygon2D` persistente sólo para esa celda vacía. Esto evita las transferencias de textura y los redibujados globales que penalizan al AMD A8 sin cambiar la grid lógica ni el gameplay.
+El terreno base se genera en `20` chunks fijos de `8 x 9` celdas, con una `ImageTexture` pequeña por chunk, escalada 2× con filtrado nearest. Al romper o exponer una pared sólo se repintan los chunks afectados; no se vuelve a subir la textura completa ni se crea un nodo por celda. Esto conserva la grid lógica y evita las transferencias y redibujados globales que penalizan al AMD A8.
 
-La validación `MINING_MVP_VALIDATION_OK` continúa pasando después de la optimización. Godot MCP sólo conserva el warning del driver AMD que fuerza ANGLE; no hay warnings nuevos de GDScript.
+La medición MCP sobre AMD R5/ANGLE registró aproximadamente `58 FPS` en reposo, `60 FPS` durante perforación y `59 FPS` moviéndose, con los `20` chunks activos.
+
+La validación `MINING_MVP_VALIDATION_OK` comprueba también ore oculto, exposición cardinal, no filtración diagonal, persistencia al alejarse y feedback de descubrimiento. Godot MCP sólo conserva el warning del driver AMD que fuerza ANGLE; no hay warnings nuevos de GDScript.
 
 ## Deliberadamente pospuesto
 

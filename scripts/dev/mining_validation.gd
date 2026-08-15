@@ -1,6 +1,7 @@
 extends SceneTree
 
 var _failures: Array[String] = []
+var _discovered_ids: Array[StringName] = []
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -33,6 +34,27 @@ func _run() -> void:
 	repeat_terrain.generate(config.default_seed)
 	_expect(repeat_terrain.get_generation_signature() == terrain.get_generation_signature(), "La misma seed no repite la generacion")
 	repeat_terrain.free()
+
+	var hidden_ore_cell := terrain.find_first_hidden_ore_cell()
+	_expect(hidden_ore_cell.x >= 0, "No existe un ore oculto para validar exploracion")
+	if hidden_ore_cell.x >= 0:
+		var hidden_ore_id := terrain.get_ore_id_at(hidden_ore_cell)
+		_expect(terrain.get_visible_ore_id(hidden_ore_cell).is_empty(), "Un ore oculto filtra informacion antes de ser expuesto")
+		_discovered_ids.clear()
+		if not terrain.ore_discovered.is_connected(_on_validation_ore_discovered):
+			terrain.ore_discovered.connect(_on_validation_ore_discovered)
+		var diagonal_cell := hidden_ore_cell + Vector2i(1, 1)
+		if terrain.is_solid_cell(diagonal_cell):
+			terrain.drill_cell(diagonal_cell, 1000.0)
+		_expect(terrain.is_cell_hidden(hidden_ore_cell), "Una excavacion diagonal revela un ore atravesando una esquina")
+		var exposing_cell := hidden_ore_cell + Vector2i.LEFT
+		_expect(terrain.is_solid_cell(exposing_cell), "El vecino cardinal para exponer el ore no es solido")
+		terrain.drill_cell(exposing_cell, 1000.0)
+		_expect(terrain.is_cell_exposed(hidden_ore_cell), "El ore no pasa a EXPOSED al abrir una pared cardinal")
+		_expect(terrain.get_visible_ore_id(hidden_ore_cell) == hidden_ore_id, "El ore expuesto no muestra su identidad correcta")
+		_expect(_discovered_ids.has(hidden_ore_id), "No se emite feedback de descubrimiento para el ore expuesto")
+		mech.global_position = terrain.get_entry_position()
+		_expect(terrain.is_cell_exposed(hidden_ore_cell), "Un ore descubierto se oculta al alejarse")
 
 	var expected_hardness := {&"soil": 6.0, &"compact_soil": 12.0, &"rock": 24.0, &"ore_block": 16.0}
 	for block_id in expected_hardness:
@@ -157,3 +179,6 @@ func _run() -> void:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+func _on_validation_ore_discovered(ore_id: StringName, _world_position: Vector2, _color: Color) -> void:
+	_discovered_ids.append(ore_id)

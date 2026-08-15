@@ -19,19 +19,17 @@ extends Resource
 @export var layer_1_soil_weight: float = 0.68
 @export var layer_1_compact_weight: float = 0.22
 @export var layer_1_rock_weight: float = 0.10
-@export var layer_1_veins: int = 6
+@export var layer_1_compact_pockets: int = 3
 
 @export_category("Layer 2 composition")
 @export var layer_2_soil_weight: float = 0.30
 @export var layer_2_compact_weight: float = 0.42
 @export var layer_2_rock_weight: float = 0.28
-@export var layer_2_veins: int = 8
+@export var layer_2_compact_pockets: int = 5
+@export var layer_2_soft_pockets: int = 2
+@export var layer_2_rock_bands: int = 3
 
 @export_category("Veins")
-@export var minimum_vein_size: int = 2
-@export var maximum_vein_size: int = 4
-@export var layer_1_ore_weights: Array[float] = [0.72, 0.28, 0.0]
-@export var layer_2_ore_weights: Array[float] = [0.32, 0.48, 0.20]
 
 @export_category("Data")
 @export var blocks: Array[ActionDashMiningBlockData] = []

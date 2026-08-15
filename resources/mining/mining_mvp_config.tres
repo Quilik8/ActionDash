@@ -40,6 +40,11 @@ value = 8
 weight = 1.0
 rarity = 0.25
 color = Color(0.2, 0.86, 1, 1)
+layer_1_vein_count = 4
+layer_2_vein_count = 3
+vein_min_size = 2
+vein_max_size = 3
+preferred_layer = 1
 
 [sub_resource type="Resource" id="OreKeronita"]
 script = ExtResource("3_ore")
@@ -49,6 +54,11 @@ value = 24
 weight = 2.0
 rarity = 0.58
 color = Color(0.72, 0.35, 1, 1)
+layer_1_vein_count = 2
+layer_2_vein_count = 4
+vein_min_size = 2
+vein_max_size = 4
+preferred_layer = 2
 
 [sub_resource type="Resource" id="OreNexalita"]
 script = ExtResource("3_ore")
@@ -58,6 +68,11 @@ value = 70
 weight = 3.0
 rarity = 0.9
 color = Color(1, 0.43, 0.15, 1)
+layer_1_vein_count = 0
+layer_2_vein_count = 2
+vein_min_size = 3
+vein_max_size = 4
+preferred_layer = 2
 
 [resource]
 script = ExtResource("1_config")
@@ -74,14 +89,12 @@ light_max_ratio = 0.45
 layer_1_soil_weight = 0.68
 layer_1_compact_weight = 0.22
 layer_1_rock_weight = 0.1
-layer_1_veins = 6
+layer_1_compact_pockets = 3
 layer_2_soil_weight = 0.3
 layer_2_compact_weight = 0.42
 layer_2_rock_weight = 0.28
-layer_2_veins = 8
-minimum_vein_size = 2
-maximum_vein_size = 4
-layer_1_ore_weights = Array[float]([0.72, 0.28, 0.0])
-layer_2_ore_weights = Array[float]([0.32, 0.48, 0.2])
+layer_2_compact_pockets = 5
+layer_2_soft_pockets = 2
+layer_2_rock_bands = 3
 blocks = Array[ExtResource("2_block")]([SubResource("BlockSoil"), SubResource("BlockCompact"), SubResource("BlockRock"), SubResource("BlockOre")])
 ores = Array[ExtResource("3_ore")]([SubResource("OreVoltrita"), SubResource("OreKeronita"), SubResource("OreNexalita")])

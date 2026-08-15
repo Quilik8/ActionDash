@@ -18,18 +18,24 @@ var _notice_time: float = 0.0
 var _run_session: ActionDashRunState
 var _loose_ores: Array[ActionDashLooseOre] = []
 var _last_depth_cell := Vector2i(-9999, -9999)
+var _last_layer: int = 0
 
 func _ready() -> void:
 	_run_session = get_node("/root/RunSession") as ActionDashRunState
 	if not terrain.is_generated():
 		terrain.generate(_run_session.mining_seed if _run_session.mining_seed != 0 else config.default_seed)
-	terrain.block_broken.connect(_on_block_broken)
+	if not terrain.block_broken.is_connected(_on_block_broken):
+		terrain.block_broken.connect(_on_block_broken)
+	if not terrain.ore_discovered.is_connected(_on_ore_discovered):
+		terrain.ore_discovered.connect(_on_ore_discovered)
 	mech.ore_ejected.connect(_on_ore_ejected)
 	mech.cargo_changed.connect(_update_ui)
 	mech.drilling_changed.connect(_on_drilling_changed)
+	mech.cell_changed.connect(_on_mech_cell_changed)
 	_run_session.resources_changed.connect(_on_run_resources_changed)
 	set_physics_process(false)
 	_update_ui()
+	_update_depth()
 	_show_notice("M: depositar/salir en la zona superior | E: expulsar último ore", 4.0)
 
 func _physics_process(_delta: float) -> void:
@@ -97,6 +103,11 @@ func _on_block_broken(_cell: Vector2i, _block_id: StringName, ore_id: StringName
 	if not ore_id.is_empty():
 		spawn_loose_ore(ore_id, world_position)
 
+func _on_ore_discovered(ore_id: StringName, _world_position: Vector2, _color: Color) -> void:
+	var ore := config.get_ore(ore_id)
+	if ore != null:
+		_show_notice("DESCUBIERTO: %s" % ore.display_name, 1.4)
+
 func _on_ore_ejected(ore_id: StringName, world_position: Vector2) -> void:
 	var loose := spawn_loose_ore(ore_id, world_position, 0.65)
 	if loose != null:
@@ -109,12 +120,19 @@ func _on_drilling_changed(active: bool, progress: float) -> void:
 func _on_run_resources_changed(_value: int, _resources: Dictionary) -> void:
 	_update_ui()
 
+func _on_mech_cell_changed(_cell: Vector2i) -> void:
+	_update_depth()
+
 func _update_depth() -> void:
 	var depth_cell := terrain.world_to_cell(mech.global_position)
-	if depth_cell == _last_depth_cell:
+	var layer := terrain.get_layer_at(mech.global_position)
+	if depth_cell == _last_depth_cell and layer == _last_layer:
 		return
 	_last_depth_cell = depth_cell
-	_depth_label.text = "DEPTH: %d   LAYER: %d" % [terrain.get_depth_row(mech.global_position), terrain.get_layer_at(mech.global_position)]
+	if _last_layer > 0 and layer != _last_layer:
+		_show_notice("LAYER %d" % layer, 1.0)
+	_last_layer = layer
+	_depth_label.text = "DEPTH: %d   LAYER: %d" % [terrain.get_depth_row(mech.global_position), layer]
 
 func _update_ui() -> void:
 	if not is_node_ready():
