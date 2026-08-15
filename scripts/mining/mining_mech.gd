@@ -17,6 +17,10 @@ var _current_load: float = 0.0
 var _last_direction: Vector2 = Vector2.DOWN
 var _history: Array[Vector2] = []
 var _segment_positions_global: Array[Vector2] = []
+var _segment_visuals: Array[Polygon2D] = []
+var _head_shadow: Polygon2D
+var _head_visual: Polygon2D
+var _drill_visual: Polygon2D
 var _drilling: bool = false
 var _drill_cell := Vector2i(-1, -1)
 var _drill_visual_time: float = 0.0
@@ -27,7 +31,8 @@ func _ready() -> void:
 	for _index in 90:
 		_history.append(global_position)
 	_update_segment_cache()
-	queue_redraw()
+	_create_visuals()
+	_update_visual_positions()
 
 func _physics_process(delta: float) -> void:
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
@@ -54,8 +59,7 @@ func _physics_process(delta: float) -> void:
 		drilling_changed.emit(false, 0.0)
 	if Input.is_action_just_pressed("mining_eject"):
 		eject_last_ore()
-	if direction != Vector2.ZERO or _drilling or was_drilling:
-		queue_redraw()
+	_update_visual_positions()
 
 func try_absorb_ore(ore_id: StringName) -> bool:
 	var ore := config.get_ore(ore_id)
@@ -138,15 +142,44 @@ func _calculate_segment_position(index: int) -> Vector2:
 		previous = point
 	return _history[-1] if not _history.is_empty() else global_position
 
-func _draw() -> void:
-	for index in range(segment_count - 1, -1, -1):
-		var segment_position := to_local(_segment_positions_global[index]) if index < _segment_positions_global.size() else Vector2.ZERO
+func _create_visuals() -> void:
+	for index in segment_count:
 		var radius := lerpf(6.0, 8.0, 1.0 - float(index) / maxf(float(segment_count), 1.0))
-		draw_circle(segment_position, radius, Color(0.16, 0.34, 0.42))
-		draw_circle(segment_position, radius - 2.0, Color(0.22, 0.62, 0.68))
+		var segment := Polygon2D.new()
+		segment.name = "Segment%d" % index
+		segment.polygon = _circle_polygon(radius)
+		segment.color = Color(0.22, 0.62, 0.68)
+		add_child(segment)
+		_segment_visuals.append(segment)
+	_head_shadow = Polygon2D.new()
+	_head_shadow.name = "HeadShadow"
+	_head_shadow.polygon = _circle_polygon(head_radius + 3.0)
+	_head_shadow.color = Color(0.06, 0.12, 0.16)
+	add_child(_head_shadow)
+	_head_visual = Polygon2D.new()
+	_head_visual.name = "Head"
+	_head_visual.polygon = _circle_polygon(head_radius)
+	_head_visual.color = Color(0.25, 0.82, 0.88)
+	add_child(_head_visual)
+	_drill_visual = Polygon2D.new()
+	_drill_visual.name = "Drill"
+	_drill_visual.polygon = PackedVector2Array([Vector2(21.0, 0.0), Vector2(14.0, 5.0), Vector2(14.0, -5.0)])
+	_drill_visual.color = Color(1.0, 0.58, 0.12)
+	add_child(_drill_visual)
+
+func _update_visual_positions() -> void:
+	for index in _segment_visuals.size():
+		if index < _segment_positions_global.size():
+			_segment_visuals[index].position = to_local(_segment_positions_global[index])
 	var shake := Vector2(sin(_drill_visual_time), cos(_drill_visual_time * 1.37)) * (1.8 if _drilling else 0.0)
-	draw_circle(shake, head_radius + 3.0, Color(0.06, 0.12, 0.16))
-	draw_circle(shake, head_radius, Color(0.25, 0.82, 0.88))
-	var drill_tip := shake + _last_direction * 14.0
-	var perpendicular := _last_direction.orthogonal() * 5.0
-	draw_colored_polygon(PackedVector2Array([drill_tip + _last_direction * 7.0, drill_tip + perpendicular, drill_tip - perpendicular]), Color(1.0, 0.58, 0.12))
+	_head_shadow.position = shake
+	_head_visual.position = shake
+	_drill_visual.position = shake
+	_drill_visual.rotation = _last_direction.angle()
+
+func _circle_polygon(radius: float) -> PackedVector2Array:
+	var polygon := PackedVector2Array()
+	for index in 12:
+		var angle := TAU * float(index) / 12.0
+		polygon.append(Vector2(cos(angle), sin(angle)) * radius)
+	return polygon

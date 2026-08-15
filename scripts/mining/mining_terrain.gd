@@ -16,8 +16,7 @@ var _generated: bool = false
 var _terrain_image: Image
 var _terrain_texture: ImageTexture
 var _terrain_sprite: Sprite2D
-var _pending_texture_cells: Array[Vector2i] = []
-var _texture_update_queued: bool = false
+var _broken_visuals: Array[Polygon2D] = []
 
 func generate(seed_value: int) -> void:
 	generation_seed = seed_value
@@ -26,6 +25,7 @@ func generate(seed_value: int) -> void:
 	_ores.resize(count)
 	_health.resize(count)
 	_ores.fill(-1)
+	_clear_broken_visuals()
 	var random := RandomNumberGenerator.new()
 	random.seed = seed_value
 	for y in config.get_total_rows():
@@ -73,7 +73,7 @@ func drill_cell(cell: Vector2i, damage: float) -> bool:
 	_ores[index] = -1
 	_health[index] = 0.0
 	block_broken.emit(cell, block.id, ore_id, cell_to_world(cell), block.color)
-	_update_texture_cell(cell)
+	_add_broken_visual(cell)
 	return true
 
 func get_cell_hardness(cell: Vector2i) -> float:
@@ -248,8 +248,6 @@ func _rebuild_texture() -> void:
 	var cell_pixels := maxi(roundi(config.cell_size * TERRAIN_RENDER_SCALE), 1)
 	var width_pixels := config.grid_width * cell_pixels
 	var height_pixels := config.get_total_rows() * cell_pixels + cell_pixels * 2
-	_pending_texture_cells.clear()
-	_texture_update_queued = false
 	_terrain_image = Image.create(width_pixels, height_pixels, false, Image.FORMAT_RGB8)
 	_terrain_image.fill(Color(0.055, 0.045, 0.055, 1.0))
 	for y in config.get_total_rows():
@@ -266,24 +264,27 @@ func _rebuild_texture() -> void:
 	_terrain_sprite.scale = Vector2.ONE / TERRAIN_RENDER_SCALE
 	_terrain_sprite.position = Vector2(0.0, float(config.get_total_rows()) * config.cell_size * 0.5 - config.cell_size)
 
-func _update_texture_cell(cell: Vector2i) -> void:
-	if _terrain_image == null or _terrain_texture == null:
-		return
-	_pending_texture_cells.append(cell)
-	if not _texture_update_queued:
-		_texture_update_queued = true
-		call_deferred("_flush_texture_update")
+func _add_broken_visual(cell: Vector2i) -> void:
+	var hole := Polygon2D.new()
+	hole.name = "BrokenCell_%d_%d" % [cell.x, cell.y]
+	var half_size := config.cell_size * 0.5
+	hole.polygon = PackedVector2Array([
+		Vector2(-half_size, -half_size),
+		Vector2(half_size, -half_size),
+		Vector2(half_size, half_size),
+		Vector2(-half_size, half_size),
+	])
+	hole.color = Color(0.055, 0.045, 0.055, 1.0)
+	hole.position = to_local(cell_to_world(cell))
+	hole.z_index = 0
+	add_child(hole)
+	_broken_visuals.append(hole)
 
-func _flush_texture_update() -> void:
-	_texture_update_queued = false
-	if _terrain_image == null or _terrain_texture == null:
-		_pending_texture_cells.clear()
-		return
-	var cell_pixels := maxi(roundi(config.cell_size * TERRAIN_RENDER_SCALE), 1)
-	for cell in _pending_texture_cells:
-		_update_image_cell(cell, cell_pixels)
-	_pending_texture_cells.clear()
-	_terrain_texture.update(_terrain_image)
+func _clear_broken_visuals() -> void:
+	for visual in _broken_visuals:
+		if is_instance_valid(visual):
+			visual.queue_free()
+	_broken_visuals.clear()
 
 func _update_image_cell(cell: Vector2i, cell_pixels: int) -> void:
 	var image_position := Vector2i(cell.x * cell_pixels + 1, (cell.y + 2) * cell_pixels + 1)

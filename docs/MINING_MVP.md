@@ -79,9 +79,9 @@ La regresión 3D existente permanece en `scripts/dev/rework_validation.gd` y dev
 
 ## Optimización de rendimiento
 
-La primera versión tenía tres costes sostenidos innecesarios: `MiningMVP` consultaba el grupo global de ores en cada tick físico, la profundidad de la UI se escribía en cada tick y `MiningMech` llamaba `queue_redraw()` aunque estuviera quieto. Ahora el MVP mantiene una lista local de `LooseOre`, desactiva su `_physics_process` cuando no existen ores pendientes, actualiza profundidad sólo cuando cambia la celda y redibuja el meca sólo mientras perfora.
+La primera versión tenía tres costes sostenidos innecesarios: `MiningMVP` consultaba el grupo global de ores en cada tick físico, la profundidad de la UI se escribía en cada tick y `MiningMech` llamaba `queue_redraw()` durante el movimiento. Ahora el MVP mantiene una lista local de `LooseOre`, desactiva su `_physics_process` cuando no existen ores pendientes, actualiza profundidad sólo cuando cambia la celda y mueve polígonos persistentes para la serpiente sin reconstruir su dibujo por frame.
 
-El terreno dejó de emitir cientos de primitivas Canvas por bloque. Se genera una sola `ImageTexture` de aproximadamente `480×456` píxeles, escalada 2× con filtrado nearest en un único `Sprite2D`; sólo se actualizan las celdas dañadas y la subida de textura se agrupa al final del frame. Esto reduce draw calls, memoria transferida y trabajo de Canvas en el AMD A8 sin cambiar la grid lógica ni el gameplay.
+El terreno base se genera como una sola `ImageTexture` de aproximadamente `480×456` píxeles, escalada 2× con filtrado nearest en un único `Sprite2D`. Al romper un bloque no se vuelve a subir la textura completa: se añade un `Polygon2D` persistente sólo para esa celda vacía. Esto evita las transferencias de textura y los redibujados globales que penalizan al AMD A8 sin cambiar la grid lógica ni el gameplay.
 
 La validación `MINING_MVP_VALIDATION_OK` continúa pasando después de la optimización. Godot MCP sólo conserva el warning del driver AMD que fuerza ANGLE; no hay warnings nuevos de GDScript.
 
