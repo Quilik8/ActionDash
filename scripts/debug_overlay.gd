@@ -42,7 +42,7 @@ func _update_text() -> void:
 	var core_integrity := _protected_core.get_integrity() if is_instance_valid(_protected_core) else 0.0
 	var core_maximum := _protected_core.get_maximum_integrity() if is_instance_valid(_protected_core) else 0.0
 	var frame_ms := 1000.0 / maxf(float(Engine.get_frames_per_second()), 1.0)
-	text = "ActionDash 3D Defense\nWASF: movimiento | MMB: orbitar | Space: salto | LMB: melee | RMB: ranged\nFPS: %d (%.2f ms)\nVelocidad: %.1f / %.1f   Inicial: %.1f   Aceleración: %.1f\nKnockback melee: %.1f   Radio melee: %.1f\nNúcleo: %d / %d   Enemigos activos: %d   Restantes: %d" % [
+	text = "ActionDash 3D Defense\nWASF: movimiento | MMB: orbitar | Space: salto | LMB: melee | RMB: ranged | M: Mining MVP\nFPS: %d (%.2f ms)\nVelocidad: %.1f / %.1f   Inicial: %.1f   Aceleración: %.1f\nKnockback melee: %.1f   Radio melee: %.1f\nNúcleo: %d / %d   Enemigos activos: %d   Restantes: %d" % [
 		Engine.get_frames_per_second(),
 		frame_ms,
 		current_speed,

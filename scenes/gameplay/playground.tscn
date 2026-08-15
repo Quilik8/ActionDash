@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3]
+[gd_scene load_steps=27 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/gameplay/player.tscn" id="1_player"]
 [ext_resource type="PackedScene" path="res://scenes/gameplay/enemy.tscn" id="2_enemy"]
@@ -15,6 +15,7 @@
 [ext_resource type="Resource" path="res://resources/upgrades/run_upgrade_catalog.tres" id="13_catalog"]
 [ext_resource type="Script" path="res://scripts/city_visuals.gd" id="14_city"]
 [ext_resource type="Script" path="res://scripts/protected_core.gd" id="15_core"]
+[ext_resource type="Script" path="res://scripts/mining/surface_mining_entry.gd" id="16_mining_entry"]
 
 [sub_resource type="Environment" id="Environment_playground"]
 background_mode = 1
@@ -80,6 +81,9 @@ radius = 2.1
 height = 4.2
 
 [node name="Playground" type="Node3D"]
+
+[node name="MiningMVPEntry" type="Node" parent="."]
+script = ExtResource("16_mining_entry")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_playground")

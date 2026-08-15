@@ -1,0 +1,96 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/mining/mining_mvp.gd" id="1_mvp"]
+[ext_resource type="Script" path="res://scripts/mining/mining_terrain.gd" id="2_terrain"]
+[ext_resource type="Script" path="res://scripts/mining/mining_mech.gd" id="3_mech"]
+[ext_resource type="Resource" path="res://resources/mining/mining_mvp_config.tres" id="4_config"]
+
+[node name="MiningMVP" type="Node2D"]
+script = ExtResource("1_mvp")
+config = ExtResource("4_config")
+
+[node name="Terrain" type="Node2D" parent="."]
+script = ExtResource("2_terrain")
+config = ExtResource("4_config")
+
+[node name="LooseOres" type="Node2D" parent="."]
+
+[node name="Feedback" type="Node2D" parent="."]
+
+[node name="Mech" type="Node2D" parent="."]
+script = ExtResource("3_mech")
+config = ExtResource("4_config")
+terrain_path = NodePath("../Terrain")
+
+[node name="Camera2D" type="Camera2D" parent="Mech"]
+position = Vector2(0, 90)
+process_callback = 0
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="HUD" type="Panel" parent="UI"]
+offset_left = 14.0
+offset_top = 14.0
+offset_right = 390.0
+offset_bottom = 218.0
+
+[node name="Depth" type="Label" parent="UI/HUD"]
+offset_left = 12.0
+offset_top = 10.0
+offset_right = 364.0
+offset_bottom = 34.0
+text = "DEPTH: 0   LAYER: 1"
+
+[node name="Capacity" type="Label" parent="UI/HUD"]
+offset_left = 12.0
+offset_top = 36.0
+offset_right = 364.0
+offset_bottom = 60.0
+text = "LOAD: 0 / 60"
+
+[node name="State" type="Label" parent="UI/HUD"]
+offset_left = 12.0
+offset_top = 62.0
+offset_right = 364.0
+offset_bottom = 86.0
+text = "STATE: EMPTY   SPEED: 150"
+
+[node name="CargoValue" type="Label" parent="UI/HUD"]
+offset_left = 12.0
+offset_top = 88.0
+offset_right = 364.0
+offset_bottom = 112.0
+text = "CARGO VALUE: 0"
+
+[node name="RunValue" type="Label" parent="UI/HUD"]
+offset_left = 12.0
+offset_top = 114.0
+offset_right = 364.0
+offset_bottom = 138.0
+text = "RUN EXTRACTED VALUE: 0"
+
+[node name="Seed" type="Label" parent="UI/HUD"]
+offset_left = 12.0
+offset_top = 140.0
+offset_right = 364.0
+offset_bottom = 164.0
+text = "SEED: 814271"
+
+[node name="Notice" type="Label" parent="UI/HUD"]
+offset_left = 12.0
+offset_top = 166.0
+offset_right = 364.0
+offset_bottom = 190.0
+theme_override_colors/font_color = Color(1, 0.72, 0.22, 1)
+text = "M: SALIR | E: EJECT"
+
+[node name="DrillProgress" type="ProgressBar" parent="UI/HUD"]
+visible = false
+offset_left = 12.0
+offset_top = 192.0
+offset_right = 364.0
+offset_bottom = 202.0
+value = 0.0
+show_percentage = false
