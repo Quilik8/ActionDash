@@ -179,7 +179,7 @@ func _update_enemy_arrow(player: ActionDashPlayer, delta: float) -> void:
 	if scene_root == null:
 		scene_root = player.get_parent()
 	var phase_controller := scene_root.get_node_or_null("PhaseController") as ActionDashPhaseController
-	if phase_controller == null or phase_controller.get_state() != ActionDashPhaseController.RunState.COMBAT or phase_controller.get_time_remaining() > 30.0:
+	if phase_controller == null or phase_controller.get_state() != ActionDashPhaseController.RunState.DEFENSE or phase_controller.get_time_remaining() > 30.0:
 		_enemy_arrow.visible = false
 		return
 	var nearest_enemy: Node3D

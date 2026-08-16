@@ -1,12 +1,13 @@
 # ActionDash
 
-MVP jugable 3D de ActionDash en Godot 4.7.1 con GDScript.
+MVP híbrido jugable 3D/2D de ActionDash en Godot 4.7.1 con GDScript.
 
 ## Estado
 
-Este MVP contiene solamente un playground provisional para probar movimiento,
-camara, disparo, enemigos y dano por proximidad. La escena diagnostica original
-se conserva aparte en `res://scenes/diagnostic.tscn`.
+El playground 3D y la escena Mining MVP alternan mediante un loop provisional
+`PREPARACIÓN → MINERÍA → DEFENSA → RECOMPENSA`. La escena diagnostica original
+se conserva aparte en `res://scenes/diagnostic.tscn`. El detalle del loop está en
+`docs/HYBRID_LOOP_MVP.md`.
 
 ## Ejecutar localmente
 

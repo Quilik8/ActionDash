@@ -1,6 +1,7 @@
 # Godot 4 generated/imported data
 .godot/
 .import/
+*.uid
 
 # Project-local temporary directory used by Godot MCP/editor checks
 .codex/runtime-temp/*

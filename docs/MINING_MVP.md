@@ -16,9 +16,10 @@ Al cambiar de sección, una escena queda fuera del árbol y la otra pasa a ser `
 ## Controles
 
 - WASF: mover el meca y perforar al mantener dirección contra terreno.
-- `E`: expulsar una unidad, siempre LAST IN → FIRST OUT.
-- `M` en superficie 3D: entrar temporalmente al Mining MVP.
-- `M` dentro de la zona azul superior: depositar cargo y regresar a la misma escena 3D.
+- `E`: interactuar con la terminal contextual de la base.
+- `U`: abrir `MEJORAS` sólo dentro de su zona superior.
+- `Q`: expulsar una unidad, siempre LAST IN → FIRST OUT.
+- La salida provisional se confirma desde `DEFENDER CÚPULA`; `M` ya no evita esa confirmación.
 
 ## Perforación y bloques
 

@@ -6,7 +6,7 @@ signal phase_completed(phase_number: int)
 signal run_defeated
 signal macrozone_completed(macrozone_number: int)
 
-enum RunState { COMBAT, PHASE_COMPLETE, CARDS, SKILL_TREE, DEFEAT, MACROZONE_COMPLETE }
+enum RunState { PREPARATION, DEFENSE, REWARD, DEFEAT }
 
 @export_category("Run data")
 @export var phases: Array[ActionDashPhaseConfig] = []
@@ -21,7 +21,7 @@ enum RunState { COMBAT, PHASE_COMPLETE, CARDS, SKILL_TREE, DEFEAT, MACROZONE_COM
 @export var deterioration_path: NodePath
 @export var protected_core_path: NodePath
 
-var _state: RunState = RunState.COMBAT
+var _state: RunState = RunState.PREPARATION
 var _phase_index: int = 0
 var _enemies_remaining: int = 0
 var _time_remaining: float = 0.0
@@ -29,6 +29,7 @@ var _run_skill_points: int = 0
 var _purchased_skills: Dictionary = {}
 var _chosen_cards: Array[StringName] = []
 var _current_card_choices: Array[ActionDashRunUpgrade] = []
+var _run_session: ActionDashRunState
 
 @onready var _player: ActionDashPlayer = get_node(player_path) as ActionDashPlayer
 @onready var _spawner: ActionDashEnemySpawner = get_node(spawner_path) as ActionDashEnemySpawner
@@ -38,6 +39,7 @@ var _current_card_choices: Array[ActionDashRunUpgrade] = []
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_run_session = get_node("/root/RunSession") as ActionDashRunState
 	_spawner.enemy_defeated.connect(_on_enemy_defeated)
 	_protected_core.integrity_changed.connect(_on_core_integrity_changed)
 	_protected_core.depleted.connect(_on_core_depleted)
@@ -48,7 +50,7 @@ func _ready() -> void:
 	call_deferred("start_new_run")
 
 func _process(delta: float) -> void:
-	if _state != RunState.COMBAT:
+	if _state != RunState.DEFENSE:
 		return
 	_time_remaining = maxf(_time_remaining - delta, 0.0)
 	_update_hud()
@@ -57,16 +59,19 @@ func _process(delta: float) -> void:
 
 func start_new_run() -> void:
 	get_tree().paused = false
+	_run_session.start_new_run()
 	_phase_index = 0
 	_run_skill_points = 0
 	_purchased_skills.clear()
 	_chosen_cards.clear()
 	_player.restore_base_run_stats()
 	_protected_core.reset_integrity()
-	_start_current_phase()
+	_spawner.clear_phase()
+	_set_state(RunState.PREPARATION)
+	_update_preparation_hud()
 
 func select_card(upgrade_id: StringName) -> bool:
-	if _state != RunState.CARDS:
+	if _state != RunState.REWARD:
 		return false
 	var selected: ActionDashRunUpgrade
 	for upgrade in _current_card_choices:
@@ -77,12 +82,16 @@ func select_card(upgrade_id: StringName) -> bool:
 		return false
 	selected.apply_to(_player)
 	_chosen_cards.append(selected.id)
-	_state = RunState.SKILL_TREE
-	_run_ui.show_skill_tree(upgrade_catalog, _run_skill_points, _purchased_skills)
+	_run_session.set_selected_card(selected.id)
+	_phase_index = mini(_phase_index + 1, maxi(phases.size() - 1, 0))
+	get_tree().paused = false
+	_set_state(RunState.PREPARATION)
+	_update_preparation_hud()
+	_run_ui.hide_overlay()
 	return true
 
 func purchase_skill(upgrade_id: StringName) -> bool:
-	if _state != RunState.SKILL_TREE or _run_skill_points <= 0 or _purchased_skills.has(upgrade_id):
+	if _run_skill_points <= 0 or _purchased_skills.has(upgrade_id):
 		return false
 	var upgrade := upgrade_catalog.find_upgrade(upgrade_id)
 	if upgrade == null or upgrade.category == "Card":
@@ -94,18 +103,9 @@ func purchase_skill(upgrade_id: StringName) -> bool:
 	return true
 
 func continue_run() -> bool:
-	if _state != RunState.SKILL_TREE:
+	if _state != RunState.REWARD:
 		return false
-	var completed_phase := get_current_phase_config()
-	if completed_phase.phase_number % 3 == 0:
-		_state = RunState.MACROZONE_COMPLETE
-		_run_ui.show_macrozone_complete()
-		macrozone_completed.emit(floori(float(completed_phase.phase_number) / 3.0))
-		return true
-	_phase_index += 1
-	get_tree().paused = false
-	_start_current_phase()
-	return true
+	return select_card(_current_card_choices[0].id) if not _current_card_choices.is_empty() else false
 
 func restart_run() -> void:
 	get_tree().paused = false
@@ -116,6 +116,14 @@ func get_current_phase_config() -> ActionDashPhaseConfig:
 
 func get_state() -> RunState:
 	return _state
+
+func begin_defense() -> bool:
+	if _state != RunState.PREPARATION or _run_session.get_phase_state() != ActionDashRunState.PhaseState.DEFENSE:
+		return false
+	get_tree().paused = false
+	_set_state(RunState.DEFENSE)
+	call_deferred("_start_current_wave")
+	return true
 
 func get_enemies_remaining() -> int:
 	return _enemies_remaining
@@ -135,24 +143,32 @@ func get_run_skill_points() -> int:
 func get_chosen_cards() -> Array[StringName]:
 	return _chosen_cards.duplicate()
 
+func get_current_card_choices() -> Array[StringName]:
+	var result: Array[StringName] = []
+	for card in _current_card_choices:
+		result.append(card.id)
+	return result
+
 func get_purchased_skill_count() -> int:
 	return _purchased_skills.size()
 
-func _start_current_phase() -> void:
+func _start_current_wave() -> void:
 	if phases.is_empty() or _phase_index >= phases.size():
 		return
-	_state = RunState.COMBAT
+	if _state != RunState.DEFENSE:
+		return
 	var config := get_current_phase_config()
+	_run_session.set_wave_number(config.phase_number)
 	_enemies_remaining = config.total_enemies
 	_time_remaining = config.time_limit_seconds
 	_deterioration.reset()
 	_run_ui.hide_overlay()
 	_spawner.start_phase(config)
-	_update_hud()
+	_update_defense_hud()
 	phase_started.emit(config.phase_number)
 
 func _on_enemy_defeated(_was_boss: bool) -> void:
-	if _state != RunState.COMBAT:
+	if _state != RunState.DEFENSE:
 		return
 	_enemies_remaining = maxi(_enemies_remaining - 1, 0)
 	_update_hud()
@@ -160,19 +176,20 @@ func _on_enemy_defeated(_was_boss: bool) -> void:
 		_complete_phase()
 
 func _complete_phase() -> void:
-	_state = RunState.PHASE_COMPLETE
-	_spawner.stop_phase()
+	_set_state(RunState.REWARD)
+	_spawner.clear_phase()
 	_run_skill_points += skill_points_per_phase
 	get_tree().paused = true
 	var phase_number := get_current_phase_config().phase_number
 	_run_ui.show_phase_complete(get_current_phase_config().display_name)
 	phase_completed.emit(phase_number)
 	await get_tree().create_timer(phase_complete_message_duration, true, false, true).timeout
-	if _state == RunState.PHASE_COMPLETE:
+	if _state == RunState.REWARD:
 		_open_cards()
 
 func _open_cards() -> void:
-	_state = RunState.CARDS
+	if _state != RunState.REWARD:
+		return
 	_current_card_choices.clear()
 	var start_index := (_phase_index * 2) % upgrade_catalog.cards.size()
 	for offset in 3:
@@ -182,8 +199,8 @@ func _open_cards() -> void:
 func _defeat_run() -> void:
 	if _state == RunState.DEFEAT:
 		return
-	_state = RunState.DEFEAT
-	_spawner.stop_phase()
+	_set_state(RunState.DEFEAT)
+	_spawner.clear_phase()
 	get_tree().paused = true
 	_run_ui.show_defeat()
 	run_defeated.emit()
@@ -191,8 +208,11 @@ func _defeat_run() -> void:
 func _update_hud() -> void:
 	if phases.is_empty():
 		return
+	_update_defense_hud()
+
+func _update_defense_hud() -> void:
 	_run_ui.set_hud(
-		get_current_phase_config().display_name,
+		"OLEADA %d" % get_current_phase_config().phase_number,
 		_enemies_remaining,
 		_time_remaining,
 		get_core_integrity(),
@@ -200,7 +220,23 @@ func _update_hud() -> void:
 	)
 
 func _on_core_integrity_changed(_current: float, _maximum: float) -> void:
+	_run_session.set_dome_integrity(_current, _maximum)
 	_update_hud()
 
 func _on_core_depleted() -> void:
 	_defeat_run()
+
+func _set_state(next_state: RunState) -> void:
+	_state = next_state
+	match next_state:
+		RunState.PREPARATION:
+			_run_session.set_phase_state(ActionDashRunState.PhaseState.PREPARATION)
+		RunState.DEFENSE:
+			_run_session.set_phase_state(ActionDashRunState.PhaseState.DEFENSE)
+		RunState.REWARD:
+			_run_session.set_phase_state(ActionDashRunState.PhaseState.REWARD)
+		RunState.DEFEAT:
+			_run_session.set_phase_state(ActionDashRunState.PhaseState.DEFEAT)
+
+func _update_preparation_hud() -> void:
+	_run_ui.set_hud("PREPARACIÓN", 0, 0.0, get_core_integrity(), get_core_maximum_integrity())

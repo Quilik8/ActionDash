@@ -5,6 +5,8 @@ signal card_selected(upgrade_id: StringName)
 signal skill_selected(upgrade_id: StringName)
 signal continue_requested
 signal restart_requested
+signal interaction_confirmed
+signal interaction_cancelled
 
 @onready var _phase_label: Label = $HUD/PhaseLabel
 @onready var _enemy_label: Label = $HUD/EnemyLabel
@@ -21,11 +23,25 @@ signal restart_requested
 @onready var _ranged_box: VBoxContainer = $Overlay/TreePanel/TreeLayout/Branches/Ranged
 @onready var _continue_button: Button = $Overlay/TreePanel/TreeLayout/Continue
 @onready var _restart_button: Button = $Overlay/Restart
+@onready var _prompt_panel: PanelContainer = $Overlay/PromptPanel
+@onready var _prompt_label: Label = $Overlay/PromptPanel/Prompt
+@onready var _interaction_panel: PanelContainer = $Overlay/InteractionPanel
+@onready var _interaction_label: Label = $Overlay/InteractionPanel/InteractionLayout/Message
+@onready var _interaction_confirm: Button = $Overlay/InteractionPanel/InteractionLayout/Actions/Confirm
+@onready var _interaction_cancel: Button = $Overlay/InteractionPanel/InteractionLayout/Actions/Cancel
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_continue_button.pressed.connect(func() -> void: continue_requested.emit())
 	_restart_button.pressed.connect(func() -> void: restart_requested.emit())
+	_interaction_confirm.pressed.connect(func() -> void:
+		interaction_confirmed.emit()
+		hide_interaction()
+	)
+	_interaction_cancel.pressed.connect(func() -> void:
+		interaction_cancelled.emit()
+		hide_interaction()
+	)
 	hide_overlay()
 
 func set_hud(phase_name: String, enemies_remaining: int, time_remaining: float, core_integrity: float, core_maximum: float) -> void:
@@ -40,6 +56,27 @@ func hide_overlay() -> void:
 	_cards_panel.visible = false
 	_tree_panel.visible = false
 	_restart_button.visible = false
+	hide_prompt()
+	hide_interaction()
+
+func show_prompt(message: String) -> void:
+	if _interaction_panel.visible:
+		return
+	_prompt_label.text = message
+	_prompt_panel.visible = true
+
+func hide_prompt() -> void:
+	_prompt_panel.visible = false
+
+func show_interaction(message: String, confirm_text: String, cancel_text: String) -> void:
+	hide_prompt()
+	_interaction_label.text = message
+	_interaction_confirm.text = confirm_text
+	_interaction_cancel.text = cancel_text
+	_interaction_panel.visible = true
+
+func hide_interaction() -> void:
+	_interaction_panel.visible = false
 
 func show_phase_complete(phase_name: String) -> void:
 	hide_overlay()

@@ -154,3 +154,51 @@ offset_top = 300.0
 offset_right = 585.0
 offset_bottom = 350.0
 text = "REINICIAR RUN"
+
+[node name="PromptPanel" type="PanelContainer" parent="Overlay"]
+visible = false
+layout_mode = 0
+offset_left = 350.0
+offset_top = 108.0
+offset_right = 610.0
+offset_bottom = 150.0
+
+[node name="Prompt" type="Label" parent="Overlay/PromptPanel"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "BAJAR A LA MINA [E]"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="InteractionPanel" type="PanelContainer" parent="Overlay"]
+visible = false
+layout_mode = 0
+offset_left = 300.0
+offset_top = 175.0
+offset_right = 660.0
+offset_bottom = 285.0
+
+[node name="InteractionLayout" type="VBoxContainer" parent="Overlay/InteractionPanel"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Message" type="Label" parent="Overlay/InteractionPanel/InteractionLayout"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "¿BAJAR A LA MINA?"
+horizontal_alignment = 1
+
+[node name="Actions" type="HBoxContainer" parent="Overlay/InteractionPanel/InteractionLayout"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="Confirm" type="Button" parent="Overlay/InteractionPanel/InteractionLayout/Actions"]
+custom_minimum_size = Vector2(120, 34)
+layout_mode = 2
+text = "BAJAR"
+
+[node name="Cancel" type="Button" parent="Overlay/InteractionPanel/InteractionLayout/Actions"]
+custom_minimum_size = Vector2(120, 34)
+layout_mode = 2
+text = "CANCELAR"
