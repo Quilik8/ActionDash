@@ -43,6 +43,7 @@ func _ready() -> void:
 	_spawner.enemy_defeated.connect(_on_enemy_defeated)
 	_protected_core.integrity_changed.connect(_on_core_integrity_changed)
 	_protected_core.depleted.connect(_on_core_depleted)
+	_run_session.preparation_time_changed.connect(_on_preparation_time_changed)
 	_run_ui.card_selected.connect(select_card)
 	_run_ui.skill_selected.connect(purchase_skill)
 	_run_ui.continue_requested.connect(continue_run)
@@ -86,6 +87,7 @@ func select_card(upgrade_id: StringName) -> bool:
 	_phase_index = mini(_phase_index + 1, maxi(phases.size() - 1, 0))
 	get_tree().paused = false
 	_set_state(RunState.PREPARATION)
+	_run_session.start_preparation_cycle()
 	_update_preparation_hud()
 	_run_ui.hide_overlay()
 	return true
@@ -163,9 +165,16 @@ func _start_current_wave() -> void:
 	_time_remaining = config.time_limit_seconds
 	_deterioration.reset()
 	_run_ui.hide_overlay()
+	_run_ui.show_wave_start(config.phase_number)
 	_spawner.start_phase(config)
 	_update_defense_hud()
 	phase_started.emit(config.phase_number)
+	call_deferred("_hide_wave_announcement")
+
+func _hide_wave_announcement() -> void:
+	await get_tree().create_timer(1.4, true, false, true).timeout
+	if _state == RunState.DEFENSE:
+		_run_ui.hide_overlay()
 
 func _on_enemy_defeated(_was_boss: bool) -> void:
 	if _state != RunState.DEFENSE:
@@ -239,4 +248,14 @@ func _set_state(next_state: RunState) -> void:
 			_run_session.set_phase_state(ActionDashRunState.PhaseState.DEFEAT)
 
 func _update_preparation_hud() -> void:
-	_run_ui.set_hud("PREPARACIÓN", 0, 0.0, get_core_integrity(), get_core_maximum_integrity())
+	_run_ui.set_hud(
+		"PREPARACIÓN",
+		0,
+		_run_session.get_preparation_time_remaining(),
+		get_core_integrity(),
+		get_core_maximum_integrity()
+	)
+
+func _on_preparation_time_changed(_remaining_seconds: float) -> void:
+	if _state == RunState.PREPARATION:
+		_update_preparation_hud()

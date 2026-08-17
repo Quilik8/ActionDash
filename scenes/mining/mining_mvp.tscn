@@ -34,7 +34,7 @@ position_smoothing_speed = 8.0
 offset_left = 14.0
 offset_top = 14.0
 offset_right = 390.0
-offset_bottom = 218.0
+offset_bottom = 242.0
 
 [node name="Depth" type="Label" parent="UI/HUD"]
 offset_left = 12.0
@@ -89,17 +89,25 @@ text = "SEED: 814271"
 
 [node name="Notice" type="Label" parent="UI/HUD"]
 offset_left = 12.0
+offset_top = 190.0
+offset_right = 364.0
+offset_bottom = 214.0
+theme_override_colors/font_color = Color(1, 0.72, 0.22, 1)
+text = "E: BASE | X: MEJORAS | Q: EJECT"
+
+[node name="GraceTimer" type="Label" parent="UI/HUD"]
+offset_left = 12.0
 offset_top = 166.0
 offset_right = 364.0
 offset_bottom = 190.0
-theme_override_colors/font_color = Color(1, 0.72, 0.22, 1)
-text = "E: BASE | U: MEJORAS | Q: EJECT"
+theme_override_colors/font_color = Color(0.45, 0.9, 1, 1)
+text = "GRACIA: 02:30"
 
 [node name="DrillProgress" type="ProgressBar" parent="UI/HUD"]
 visible = false
 offset_left = 12.0
-offset_top = 192.0
+offset_top = 218.0
 offset_right = 364.0
-offset_bottom = 202.0
+offset_bottom = 228.0
 value = 0.0
 show_percentage = false

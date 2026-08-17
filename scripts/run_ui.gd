@@ -83,6 +83,11 @@ func show_phase_complete(phase_name: String) -> void:
 	_message_panel.visible = true
 	_message_label.text = "%s COMPLETADA" % phase_name
 
+func show_wave_start(wave_number: int) -> void:
+	hide_overlay()
+	_message_panel.visible = true
+	_message_label.text = "OLEADA %d" % wave_number
+
 func show_cards(cards: Array[ActionDashRunUpgrade]) -> void:
 	hide_overlay()
 	_message_panel.visible = true

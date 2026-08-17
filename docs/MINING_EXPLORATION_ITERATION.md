@@ -45,7 +45,10 @@ Las capas mantienen identidades estadísticas y visuales diferentes sin añadir 
 - identidad y feedback del ore descubierto;
 - persistencia visible al alejarse.
 
-La regresión 3D se mantiene en `scripts/dev/rework_validation.gd`. Tienda, scanner, upgrades, cartas, metaprogresión, nuevos mecas, timer de oleada, endless mode y loop Wave/Mine/Wave siguen pospuestos.
+La regresión 3D se mantiene en `scripts/dev/rework_validation.gd`. Tienda,
+scanner, upgrades reales, cartas de mina, metaprogresión, nuevos mecas,
+endless mode y el loop definitivo Wave/Mine/Wave siguen pospuestos; el loop
+híbrido MVP con gracia y oleadas se valida por separado.
 
 ## Rendimiento observado
 

@@ -9,6 +9,7 @@ signal cell_changed(cell: Vector2i)
 @export var config: ActionDashMiningConfig
 @export var terrain_path: NodePath
 @export var head_radius: float = 9.0
+@export var head_ore_pickup_radius: float = 11.0
 @export var segment_count: int = 5
 @export var segment_spacing: float = 17.0
 
@@ -73,6 +74,9 @@ func try_absorb_ore(ore_id: StringName) -> bool:
 	_current_load += ore.weight
 	cargo_changed.emit()
 	return true
+
+func is_head_near(world_position: Vector2) -> bool:
+	return global_position.distance_to(world_position) <= head_ore_pickup_radius
 
 func eject_last_ore() -> StringName:
 	if _cargo_stack.is_empty():

@@ -17,9 +17,9 @@ Al cambiar de sección, una escena queda fuera del árbol y la otra pasa a ser `
 
 - WASF: mover el meca y perforar al mantener dirección contra terreno.
 - `E`: interactuar con la terminal contextual de la base.
-- `U`: abrir `MEJORAS` sólo dentro de su zona superior.
+- `X`: abrir `MEJORAS` sólo dentro de su zona superior.
 - `Q`: expulsar una unidad, siempre LAST IN → FIRST OUT.
-- La salida provisional se confirma desde `DEFENDER CÚPULA`; `M` ya no evita esa confirmación.
+- La salida provisional se confirma desde `REGRESAR A SUPERFICIE`; `M` ya no evita esa confirmación.
 
 ## Perforación y bloques
 
@@ -72,7 +72,10 @@ La UI provisional muestra profundidad/capa, carga, estado, velocidad, valor del 
 
 ## Depósito y persistencia
 
-En la zona superior, `M` deposita únicamente la pila interna. `RunSession.deposit_items()` incrementa `run_resources[ore_id]` y `extracted_value`, y después el meca vacía peso y orden. Los ores expulsados o bloqueados que permanecen abajo no cuentan como extraídos.
+En la zona superior, la confirmación central `E` deposita únicamente la pila interna.
+`RunSession.deposit_items()` incrementa `run_resources[ore_id]` y
+`extracted_value`, y después el meca vacía peso y orden. Los ores expulsados o
+bloqueados que permanecen abajo no cuentan como extraídos.
 
 La mina cacheada se reutiliza al entrar por segunda vez: no regenera bloques, no duplica cargo y conserva objetos sueltos. La escena 3D también es la misma instancia, por lo que fase, tiempo, núcleo, enemigos, cartas y upgrades no se reinician.
 
@@ -94,4 +97,4 @@ La validación `MINING_MVP_VALIDATION_OK` comprueba también ore oculto, exposic
 
 ## Deliberadamente pospuesto
 
-Cartas y upgrades de mina, tienda, árbol nuevo, metaprogresión, múltiples mecas, arte final de serpiente, minerales visibles en segmentos, dron, timer de oleada, loop Wave/Mine/Wave, final de expedición, endless mode, audio final, terreno infinito y serialización completa para descargar de memoria ambas escenas.
+Cartas y upgrades de mina, tienda, árbol nuevo, metaprogresión, múltiples mecas, arte final de serpiente, minerales visibles en segmentos, dron, loop definitivo Wave/Mine/Wave, final de expedición, endless mode, audio final, terreno infinito y serialización completa para descargar de memoria ambas escenas.

@@ -16,6 +16,7 @@ const BASE_ZONE_RADIUS: float = 30.0
 @onready var _cargo_value_label: Label = $UI/HUD/CargoValue
 @onready var _run_value_label: Label = $UI/HUD/RunValue
 @onready var _seed_label: Label = $UI/HUD/Seed
+@onready var _grace_label: Label = $UI/HUD/GraceTimer
 @onready var _notice_label: Label = $UI/HUD/Notice
 @onready var _drill_progress: ProgressBar = $UI/HUD/DrillProgress
 
@@ -46,7 +47,10 @@ func _ready() -> void:
 	mech.cargo_changed.connect(_update_ui)
 	mech.drilling_changed.connect(_on_drilling_changed)
 	mech.cell_changed.connect(_on_mech_cell_changed)
-	_run_session.resources_changed.connect(_on_run_resources_changed)
+	if not _run_session.resources_changed.is_connected(_on_run_resources_changed):
+		_run_session.resources_changed.connect(_on_run_resources_changed)
+	if not _run_session.preparation_time_changed.is_connected(_on_preparation_time_changed):
+		_run_session.preparation_time_changed.connect(_on_preparation_time_changed)
 	set_physics_process(false)
 	_update_ui()
 	_update_depth()
@@ -61,7 +65,7 @@ func _physics_process(_delta: float) -> void:
 			continue
 		if not loose.can_be_picked_up():
 			continue
-		if mech.global_position.distance_to(loose.global_position) <= 20.0 and mech.try_absorb_ore(loose.ore_id):
+		if mech.is_head_near(loose.global_position) and mech.try_absorb_ore(loose.ore_id):
 			_show_notice("ABSORBIDO: %s" % loose.ore_data.display_name, 1.2)
 			loose.queue_free()
 			_loose_ores.remove_at(index)
@@ -89,7 +93,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event.is_action_pressed("mining_toggle"):
 		get_viewport().set_input_as_handled()
-		_show_notice("USA DEFENDER CÚPULA [E] PARA REGRESAR", 2.0)
+		_show_notice("USA REGRESAR A SUPERFICIE [E]", 2.0)
 
 func deposit_at_surface(return_to_surface: bool = true) -> bool:
 	if not terrain.is_at_exit(mech.global_position):
@@ -142,6 +146,18 @@ func _on_drilling_changed(active: bool, progress: float) -> void:
 func _on_run_resources_changed(_value: int, _resources: Dictionary) -> void:
 	_update_ui()
 
+func _on_preparation_time_changed(_remaining_seconds: float) -> void:
+	_update_preparation_time()
+
+func _update_preparation_time() -> void:
+	if _grace_label == null:
+		return
+	if not _run_session.is_preparation_timer_active():
+		_grace_label.text = "GRACIA: --:--"
+		return
+	var seconds := maxi(ceili(_run_session.get_preparation_time_remaining()), 0)
+	_grace_label.text = "GRACIA: %02d:%02d" % [floori(float(seconds) / 60.0), seconds % 60]
+
 func _on_mech_cell_changed(_cell: Vector2i) -> void:
 	_update_depth()
 	_update_base_prompt()
@@ -161,6 +177,7 @@ func _update_ui() -> void:
 	if not is_node_ready():
 		return
 	_phase_state_label.text = "MINERÍA"
+	_update_preparation_time()
 	_capacity_label.text = "LOAD: %.0f / %.0f" % [mech.get_current_load(), config.capacity]
 	_state_label.text = "STATE: %s   SPEED: %.0f" % [mech.get_load_state(), mech.get_current_speed()]
 	_cargo_value_label.text = "CARGO VALUE: %d" % mech.get_cargo_value()
@@ -247,17 +264,17 @@ func _update_base_prompt() -> void:
 		return
 	match _get_base_zone():
 		&"upgrades":
-			_base_prompt_label.text = "BASE MINERA\nMEJORAS [U]"
+			_base_prompt_label.text = "BASE MINERA\nMEJORAS [X]"
 		&"defender":
-			_base_prompt_label.text = "BASE MINERA\nDEFENDER CÚPULA [E]"
+			_base_prompt_label.text = "BASE MINERA\nREGRESAR A SUPERFICIE [E]"
 		_:
 			_base_prompt_label.text = ""
 
 func _show_defender_confirmation() -> void:
 	_modal_open = true
 	mech.set_physics_process(false)
-	_interaction_label.text = "¿DEFENDER CÚPULA?\nCARGO: %d" % mech.get_cargo_value()
-	_interaction_confirm.text = "DEFENDER"
+	_interaction_label.text = "¿REGRESAR A LA SUPERFICIE?\nCARGO: %d" % mech.get_cargo_value()
+	_interaction_confirm.text = "REGRESAR"
 	_interaction_cancel.text = "SEGUIR MINANDO"
 	_interaction_panel.visible = true
 
@@ -270,7 +287,7 @@ func _confirm_defender() -> void:
 		return
 	_modal_open = false
 	_interaction_panel.visible = false
-	_run_session.exit_mining_to_defense()
+	_run_session.exit_mining_to_preparation()
 
 func _show_upgrades() -> void:
 	_modal_open = true
