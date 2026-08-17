@@ -240,7 +240,7 @@ func _get_base_zone() -> StringName:
 		return &"upgrades"
 	if offset.distance_to(Vector2(38.0, 0.0)) <= BASE_ZONE_RADIUS:
 		return &"defender"
-	return &"center"
+	return &"defender"
 
 func _update_base_prompt() -> void:
 	if _base_prompt_label == null or _modal_open:
@@ -250,8 +250,6 @@ func _update_base_prompt() -> void:
 			_base_prompt_label.text = "BASE MINERA\nMEJORAS [U]"
 		&"defender":
 			_base_prompt_label.text = "BASE MINERA\nDEFENDER CÚPULA [E]"
-		&"center":
-			_base_prompt_label.text = "BASE MINERA\nve a MEJORAS o DEFENDER"
 		_:
 			_base_prompt_label.text = ""
 

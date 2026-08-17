@@ -36,7 +36,8 @@ func _run() -> void:
 	_expect(not surface.is_inside_tree(), "La superficie sigue activa durante Mining")
 	_expect(mine.terrain.is_cell_excavated(drilled_cell), "La celda excavada no queda persistente")
 	mine.mech.try_absorb_ore(&"voltrita")
-	mine.mech.global_position = entry + Vector2(38.0, 0.0)
+	# La entrada central de la base también debe permitir salir con E.
+	mine.mech.global_position = entry
 	var defend_event := InputEventAction.new()
 	defend_event.action = &"interact"
 	defend_event.pressed = true
@@ -78,7 +79,7 @@ func _run() -> void:
 	second_mine._unhandled_input(upgrades_event)
 	_expect(second_mine._upgrades_panel.visible, "MEJORAS se abre fuera de su zona o no abre en la base")
 	second_mine._close_mining_modal()
-	second_mine.mech.global_position = second_mine.terrain.get_entry_position() + Vector2(38.0, 0.0)
+	second_mine.mech.global_position = second_mine.terrain.get_entry_position()
 	second_mine._unhandled_input(defend_event)
 	second_mine._confirm_defender()
 	await process_frame

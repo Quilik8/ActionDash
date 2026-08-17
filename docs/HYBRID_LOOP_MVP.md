@@ -60,7 +60,7 @@ La entrada superior tiene dos zonas lógicas legibles:
 - `MEJORAS [U]`: sólo abre dentro de la zona izquierda. Muestra valor y
   cantidades depositadas, con el texto `TIENDA: POSPUESTA`; emite el hook
   `upgrades_requested` para una futura tienda.
-- `DEFENDER CÚPULA [E]`: zona derecha. Abre `¿DEFENDER CÚPULA?` con
+- `DEFENDER CÚPULA [E]`: salida central y zona derecha. Abre `¿DEFENDER CÚPULA?` con
   `DEFENDER` y `SEGUIR MINANDO`.
 
 Al confirmar defender se deposita la carga si el meca está en la salida,
