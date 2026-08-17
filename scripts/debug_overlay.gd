@@ -46,10 +46,17 @@ func _update_text() -> void:
 	var core_maximum := _protected_core.get_maximum_integrity() if is_instance_valid(_protected_core) else 0.0
 	var frame_ms := 1000.0 / maxf(float(Engine.get_frames_per_second()), 1.0)
 	var flow_text := ""
+	var movement_hint := "WASF"
+	var upgrade_hint := "X"
 	if show_hybrid_state and is_instance_valid(_run_session):
 		var state_name: String = ActionDashRunState.PhaseState.keys()[_run_session.get_phase_state()]
 		flow_text = "\nSTATE: %s   WAVE: %d   MINE SEED: %d   EXTRACTED: %d" % [state_name, _run_session.wave_number, _run_session.mining_seed, _run_session.extracted_value]
-	text = "ActionDash 3D Defense\nWASF: movimiento | E: interactuar | X: mejoras en mina | LMB: melee | RMB: ranged%s\nFPS: %d (%.2f ms)\nVelocidad: %.1f / %.1f   Inicial: %.1f   Aceleración: %.1f\nKnockback melee: %.1f   Radio melee: %.1f\nNúcleo: %d / %d   Enemigos activos: %d   Restantes: %d" % [
+	if is_instance_valid(_run_session):
+		movement_hint = _run_session.get_movement_key_label()
+		upgrade_hint = _run_session.get_upgrade_key_label()
+	text = "ActionDash 3D Defense\n%s: movimiento | E: interactuar | %s: mejoras en mina | LMB: melee | RMB: ranged%s\nFPS: %d (%.2f ms)\nVelocidad: %.1f / %.1f   Inicial: %.1f   Aceleración: %.1f\nKnockback melee: %.1f   Radio melee: %.1f\nNúcleo: %d / %d   Enemigos activos: %d   Restantes: %d" % [
+		movement_hint,
+		upgrade_hint,
 		flow_text,
 		Engine.get_frames_per_second(),
 		frame_ms,

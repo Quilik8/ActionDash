@@ -27,6 +27,12 @@ Controles del MVP:
 El renderer usa `gl_compatibility` para mantener bajo el coste de ejecucion en
 hardware antiguo o de gama media-baja.
 
+## Demo para compartir
+
+La demo de Windows se exporta con `WASD` y `U`, mientras que el desarrollo
+mantiene `WASF` y `X`. Consulta [docs/DEMO_WINDOWS.md](docs/DEMO_WINDOWS.md)
+para generar el ZIP que se puede enviar sin instalar Godot.
+
 ## Godot MCP para Codex
 
 La configuracion especifica del proyecto esta en `.codex/config.toml`. Usa

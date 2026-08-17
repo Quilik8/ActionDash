@@ -31,6 +31,7 @@ var dome_integrity: float = 4000.0
 var dome_maximum_integrity: float = 4000.0
 var preparation_time_remaining: float = PREPARATION_DURATION_SECONDS
 var transition_in_progress: bool = false
+var demo_controls_enabled: bool = false
 
 var _surface_scene: Node
 var _mining_scene: Node
@@ -39,6 +40,9 @@ var _preparation_timer_active: bool = false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	demo_controls_enabled = OS.has_feature("actiondash_demo")
+	if demo_controls_enabled:
+		_apply_demo_controls()
 
 func _process(delta: float) -> void:
 	if not _preparation_timer_active:
@@ -107,6 +111,26 @@ func get_preparation_time_remaining() -> float:
 
 func is_preparation_timer_active() -> bool:
 	return _preparation_timer_active
+
+func get_upgrade_key_label() -> String:
+	return "U" if demo_controls_enabled else "X"
+
+func get_movement_key_label() -> String:
+	return "WASD" if demo_controls_enabled else "WASF"
+
+func _apply_demo_controls() -> void:
+	_replace_key_action(&"move_right", KEY_D, 100)
+	_replace_key_action(&"open_upgrades", KEY_U, 117)
+
+func _replace_key_action(action: StringName, keycode: int, unicode: int) -> void:
+	if not InputMap.has_action(action):
+		return
+	InputMap.action_erase_events(action)
+	var event := InputEventKey.new()
+	event.keycode = keycode
+	event.physical_keycode = keycode
+	event.unicode = unicode
+	InputMap.action_add_event(action, event)
 
 func enter_mining() -> bool:
 	var tree := get_tree()

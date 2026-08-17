@@ -56,7 +56,7 @@ func _ready() -> void:
 	_update_ui()
 	_update_depth()
 	_update_base_prompt()
-	_show_notice("Q: expulsar último ore | E: interactuar en la base", 4.0)
+	_show_notice("E: base | %s: mejoras | Q: expulsar ore" % _run_session.get_upgrade_key_label(), 4.0)
 
 func prepare_for_entry() -> void:
 	_modal_open = false
@@ -285,7 +285,7 @@ func _update_base_prompt() -> void:
 		return
 	match _get_base_zone():
 		&"upgrades":
-			_base_prompt_label.text = "BASE MINERA\nMEJORAS [X]"
+			_base_prompt_label.text = "BASE MINERA\nMEJORAS [%s]" % _run_session.get_upgrade_key_label()
 		&"defender":
 			_base_prompt_label.text = "BASE MINERA\nREGRESAR A SUPERFICIE [E]"
 		_:

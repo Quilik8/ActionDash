@@ -12,6 +12,8 @@ export.cfg
 *.tmp
 *.bak
 *.log
+/releases/
+/.tmp-godot/
 
 # Operating-system files
 .DS_Store
