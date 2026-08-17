@@ -123,6 +123,8 @@ func enter_mining() -> bool:
 		_mining_scene = MINING_SCENE.instantiate()
 	tree.root.add_child(_mining_scene)
 	tree.current_scene = _mining_scene
+	if _mining_scene.has_method("prepare_for_entry"):
+		_mining_scene.call("prepare_for_entry")
 	set_phase_state(PhaseState.MINING)
 	transition_in_progress = false
 	return true

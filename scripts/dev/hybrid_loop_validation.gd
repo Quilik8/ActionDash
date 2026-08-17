@@ -30,9 +30,13 @@ func _run() -> void:
 	surface_entry._unhandled_input(enter_event)
 	_expect(surface.get_node("RunUI/Overlay/InteractionPanel").visible, "No muestra confirmacion para entrar a Mining")
 	surface_entry._confirm_enter_mining()
-	await process_frame
 	var mine := current_scene as ActionDashMiningMVP
 	var first_mine_id := mine.get_instance_id()
+	# The confirmation input must not reopen Mining's base modal during the scene swap.
+	mine._unhandled_input(enter_event)
+	_expect(not mine._interaction_panel.visible, "La entrada 3D->2D arrastra el cuadro de interaccion")
+	_expect(mine.mech.is_physics_processing(), "El meca no queda habilitado al entrar a Mining")
+	await process_frame
 	var entry := mine.terrain.get_entry_position()
 	var drilled_cell := Vector2i(floori(float(mine.config.grid_width) / 2.0), 4)
 	mine.terrain.drill_cell(drilled_cell, 1000.0)
@@ -79,6 +83,14 @@ func _run() -> void:
 	_expect(second_mine.terrain.is_cell_excavated(drilled_cell), "El tunel excavado desaparece entre ciclos")
 	_expect(run_session.extracted_value == value_after_first_deposit, "Los recursos se duplican al reentrar")
 	_expect(second_mine.mech.get_cargo_stack().size() == 1, "La carga no persiste al reentrar en Mining")
+	# Regression: entering again must re-enable the mech even if a previous modal stopped it.
+	second_mine.mech.set_physics_process(false)
+	_expect(run_session.exit_mining_to_preparation(), "No puede salir temporalmente para probar la reentrada")
+	await process_frame
+	_expect(run_session.enter_mining(), "No puede volver a entrar tras una salida temporal")
+	await process_frame
+	second_mine = current_scene as ActionDashMiningMVP
+	_expect(second_mine.mech.is_physics_processing(), "La reentrada conserva el meca bloqueado")
 	second_mine.mech.global_position = second_mine.terrain.get_entry_position() + Vector2(-38.0, 0.0)
 	var upgrades_event := InputEventAction.new()
 	upgrades_event.action = &"open_upgrades"

@@ -33,6 +33,7 @@ var _interaction_cancel: Button
 var _upgrades_panel: PanelContainer
 var _upgrades_label: Label
 var _modal_open: bool = false
+var _interaction_input_locked: bool = false
 
 func _ready() -> void:
 	_run_session = get_node("/root/RunSession") as ActionDashRunState
@@ -56,6 +57,20 @@ func _ready() -> void:
 	_update_depth()
 	_update_base_prompt()
 	_show_notice("Q: expulsar último ore | E: interactuar en la base", 4.0)
+
+func prepare_for_entry() -> void:
+	_modal_open = false
+	_interaction_panel.visible = false
+	_upgrades_panel.visible = false
+	mech.set_physics_process(true)
+	# If the surface confirmation was opened with E, do not let that same
+	# input event immediately open Mining's base modal after the scene swap.
+	_interaction_input_locked = true
+	call_deferred("_unlock_entry_interaction")
+	_update_base_prompt()
+
+func _unlock_entry_interaction() -> void:
+	_interaction_input_locked = false
 
 func _physics_process(_delta: float) -> void:
 	for index in range(_loose_ores.size() - 1, -1, -1):
@@ -81,6 +96,12 @@ func _process(delta: float) -> void:
 			set_process(false)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _interaction_input_locked:
+		if event.is_action_released("interact"):
+			_interaction_input_locked = false
+		elif event.is_action_pressed("interact"):
+			get_viewport().set_input_as_handled()
+			return
 	if event.is_action_pressed("open_upgrades"):
 		get_viewport().set_input_as_handled()
 		if not _modal_open and _get_base_zone() == &"upgrades":
@@ -285,8 +306,7 @@ func _confirm_defender() -> void:
 	if not deposit_at_surface(false):
 		_close_mining_modal()
 		return
-	_modal_open = false
-	_interaction_panel.visible = false
+	_close_mining_modal()
 	_run_session.exit_mining_to_preparation()
 
 func _show_upgrades() -> void:
